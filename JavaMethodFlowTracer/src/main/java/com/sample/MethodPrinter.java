@@ -31,11 +31,30 @@ import com.sample.visitors.MethodVisitor;
  */
 public class MethodPrinter {
 
+	/**
+	 * The dir. where temporary files will be created.
+	 */
+	private static final String TEMP_DIR = "temp";	
+
+	/**
+	 * Where is your dot program located? It will be called externally.
+	 */
+	private static final String DOT = "c:/Program Files/Graphviz2.38/bin/dot.exe";	
+	
+	private static final String OUTPUT_DIR = "callgraphs\\";
+	
+	
 	private static final String[] SRC_DIRS = new String[] { 
-			"N:\\Sources\\dev.CIAM\\SampleJavaparser\\src"
+			"testinputdir"
 		};  
 
 	public static void main(String[] args) throws Exception {
+		String methodToPrintTreeFor = "com.sample.Test.printHello";
+		
+		if(args != null && args.length == 1 && args[0] != null) {
+			methodToPrintTreeFor = args[0];
+		} 
+		
 		MethodPrinter printer = new MethodPrinter();
 		File[] files = new File[SRC_DIRS.length];
 		int i = 0;
@@ -45,7 +64,8 @@ public class MethodPrinter {
 
 		}		
 		printer.processSrcDir(files);
-		printer.printMethodCallTreeForMethod("com.sample.Test.printHello");
+		
+		printer.printMethodCallTreeForMethod(methodToPrintTreeFor);
 	}
 
 	public void processMethodCallTree(File file) throws ParseException, IOException {
@@ -78,22 +98,24 @@ public class MethodPrinter {
 		//System.out.println(tree.toStringWithDepth());
 	}
 
-	/**
-	 * The dir. where temporary files will be created.
-	 */
-	private static final String TEMP_DIR = "N:/Sources/dev.CIAM/SampleParser/temp";	
-
-	/**
-	 * Where is your dot program located? It will be called externally.
-	 */
-	private static final String DOT = "c:/Program Files/Graphviz2.38/bin/dot.exe";	
-	
-	private static final String OUTPUT_DIR = "N:\\Sources\\dev.CIAM\\SampleParser\\callgraphs\\";
 
 	//NOTE: GrpahViz must be installed in the system to generate call graph.
 	public void writeAsGraphVizFile(GenericTree<String> tree, String method) {
 		String type = "gif";// can be dot, pdf, svg, png.
 		GraphViz gv = new GraphViz(DOT, TEMP_DIR);
+		
+		//Create missing dirs.
+		File tempDir = new File(TEMP_DIR);		
+		if(!tempDir.exists()) {
+			tempDir.mkdirs();
+		}
+		
+		File outDir = new File(OUTPUT_DIR);		
+		if(!outDir.exists()) {
+			outDir.mkdirs();
+		}
+		
+		
 		gv.addln(gv.start_graph());
 
 		buildWithDepth(gv, tree.getRoot());
