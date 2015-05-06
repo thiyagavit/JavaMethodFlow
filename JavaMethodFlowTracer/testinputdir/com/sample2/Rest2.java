@@ -2,10 +2,7 @@
  * © 2009-2015 T-Systems International GmbH. All rights reserved
  * _______________UTF-8 checked via this umlaut: ü
  */
-package com.sample;
-
-
-import com.sample2.Rest2;
+package com.sample2;
 
 /**
  * TODO Small and simple description of the type
@@ -17,17 +14,14 @@ import com.sample2.Rest2;
  *    May 4, 2015: Created
  *
  */
-public class Rest {
+public class Rest2 {
 
-	public void printBye() {
-		System.out.println("Bi");		
-		printDone();
-		Rest2 rest2 = new Rest2();
-		rest2.printBye2();
-		
+	public void printBye2() {
+		System.out.println("Bi");
+		printDone2();
 	}		
 	
-	public void printDone() {
+	public void printDone2() {
 		System.out.println("Done");
 	}	
 }

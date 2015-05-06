@@ -39,7 +39,7 @@ public class MethodPrinter {
 	/**
 	 * Where is your dot program located? It will be called externally.
 	 */
-	private static final String DOT = "c:/Program Files/Graphviz2.38/bin/dot.exe";	
+	private static final String DOT = "c:/Program Files (x86)/Graphviz2.38/bin/dot.exe";	
 	
 	private static final String OUTPUT_DIR = "callgraphs\\";
 	

@@ -137,11 +137,15 @@ public class MethodVisitor extends VoidVisitorAdapter {
 		Variable var = new Variable();
 		var.setClazz(varExpr.getType().toString());
 		var.setName(varExpr.getVars().get(0).getId().toString());
-		String pkg = imports.get(var.getClazz());
+		String importString = imports.get(var.getClazz());
+		String pkg;
 		
-		if(pkg == null) {
+		if(importString == null) {
+			
 			//Default package;
 			pkg = this.pkg;
+		} else {
+			pkg = importString.substring(0, importString.lastIndexOf(".") - 1);
 		}
 		var.setPkg(pkg);
 		System.out.println("Var name " + var.getName() + " Type " + var.getClazz());
@@ -156,21 +160,21 @@ public class MethodVisitor extends VoidVisitorAdapter {
 		String pkgToken = tokens[tokens.length - 1].trim();
 		this.pkg = pkgToken.substring(0, pkgToken.length() -1);
 		super.visit(pkgDec, arg);
-		//System.out.println("pkg " + this.pkg);
+		System.out.println("pkg " + this.pkg);
 	}
 	
 	@Override
 	public void visit(ClassOrInterfaceDeclaration n, Object arg) {
 		this.clazz = n.getName().trim();
 		super.visit(n, arg);
-		//System.out.println("clazz " + this.clazz);
+		System.out.println("clazz " + this.clazz);
 	}
 
 	@Override
 	public void visit(ImportDeclaration n, Object arg) {
 		String importLine = n.getName().toString();
 		imports.put(n.getName().getName(), n.getName().toString());
-		//System.out.println(importLine + "," + n.getName().getName());
+		System.out.println(importLine + "," + n.getName().getName());
 		//TODO: handle asterix imports
 		//System.out.println(n.isAsterisk());
 		super.visit(n, arg);
