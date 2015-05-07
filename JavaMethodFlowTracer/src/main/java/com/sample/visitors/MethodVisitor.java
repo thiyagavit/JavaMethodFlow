@@ -81,56 +81,59 @@ public class MethodVisitor extends VoidVisitorAdapter {
 		// System.out.println("Method name " + n.getName());
 		// System.out.println("Method Body ");
 
-		List<Statement> stmts = n.getBody().getStmts();
+		//Interfaces do not have body. so ignore.
+		if(n.getBody() != null) {
+			
+			List<Statement> stmts = n.getBody().getStmts();
 
-		for ( Statement stmt : stmts ) {
+			for ( Statement stmt : stmts ) {
 
-			if ( stmt instanceof ExpressionStmt ) {
-				ExpressionStmt exprStmt = (ExpressionStmt)stmt;
-				Expression exp = exprStmt.getExpression();
+				if ( stmt instanceof ExpressionStmt ) {
+					ExpressionStmt exprStmt = (ExpressionStmt)stmt;
+					Expression exp = exprStmt.getExpression();
 
-				if ( exp instanceof MethodCallExpr ) {
-					MethodCallExpr mexpr = (MethodCallExpr)exp;
-					Method calledMethod = new Method();
-					calledMethod.setName(mexpr.getName());
-					String methodVarName = null;
-					
-					if(mexpr.getScope() == null) {
-						//Calling method within same class
-					} else {
-						System.out.println(mexpr.getScope().toString());
-						methodVarName = mexpr.getScope().toString();
-					}
-					
-					Variable methodVar = null;
-					
-					//First check methodparams, then variable map followed by instance variables.
-					if(methodParams.containsKey(methodVarName)) {
-						methodVar = methodParams.get(methodVarName);						
-					} else if(variableMap.containsKey(methodVarName)) {
-						methodVar = variableMap.get(methodVarName);						
-					} else if(instanceVariableMap.containsKey(methodVarName)) {
-						methodVar = instanceVariableMap.get(methodVarName);
-					} else if(mexpr.getScope() != null) {
-						//Static method calls. in static method scope contains static call details.
-						methodVar= new Variable();
-						methodVar.setClazz(mexpr.getScope().toString());
-						methodVar.setStaticVar(true);
-					} else {
-						//calling method within itself so no scope.
-						methodVar= new Variable();
-						methodVar.setClazz(this.clazz);
-						methodVar.setPkg(this.pkg);
-					}
-					//TODO: handle inner classes and anonymus classes.
-					
-					calledMethod.setClazz(methodVar.getClazz());
-					calledMethod.setPkg(methodVar.getPkg());
-					MethodCallContainer.getContainer().addMethodCall(callerMethod, calledMethod);
-				} 
-			}
+					if ( exp instanceof MethodCallExpr ) {
+						MethodCallExpr mexpr = (MethodCallExpr)exp;
+						Method calledMethod = new Method();
+						calledMethod.setName(mexpr.getName());
+						String methodVarName = null;
+						
+						if(mexpr.getScope() == null) {
+							//Calling method within same class
+						} else {
+							System.out.println(mexpr.getScope().toString());
+							methodVarName = mexpr.getScope().toString();
+						}
+						
+						Variable methodVar = null;
+						
+						//First check methodparams, then variable map followed by instance variables.
+						if(methodParams.containsKey(methodVarName)) {
+							methodVar = methodParams.get(methodVarName);						
+						} else if(variableMap.containsKey(methodVarName)) {
+							methodVar = variableMap.get(methodVarName);						
+						} else if(instanceVariableMap.containsKey(methodVarName)) {
+							methodVar = instanceVariableMap.get(methodVarName);
+						} else if(mexpr.getScope() != null) {
+							//Static method calls. in static method scope contains static call details.
+							methodVar= new Variable();
+							methodVar.setClazz(mexpr.getScope().toString());
+							methodVar.setStaticVar(true);
+						} else {
+							//calling method within itself so no scope.
+							methodVar= new Variable();
+							methodVar.setClazz(this.clazz);
+							methodVar.setPkg(this.pkg);
+						}
+						//TODO: handle inner classes and anonymus classes.
+						
+						calledMethod.setClazz(methodVar.getClazz());
+						calledMethod.setPkg(methodVar.getPkg());
+						MethodCallContainer.getContainer().addMethodCall(callerMethod, calledMethod);
+					} 
+				}
+			}			
 		}
-		
 	}
 	
 	@Override
@@ -191,15 +194,19 @@ public class MethodVisitor extends VoidVisitorAdapter {
 		Variable var = new Variable();
 		var.setClazz(n.getType().toString());
 		var.setName(n.getVariables().get(0).getId().toString());
-		String pkg = imports.get(var.getClazz());
 		
-		if(pkg == null) {
-			//Defaulty package;
-			pkg = this.pkg;
+		String importString = imports.get(var.getClazz());
+		String varPkg;
+		
+		if(importString == null) {
+			
+			//Default package;
+			varPkg = this.pkg;
+		} else {
+			varPkg = importString.substring(0, importString.lastIndexOf("."));
 		}
-		var.setPkg(pkg);
-		
-		System.out.println("instance Var name " + var.getName() + " Type " + var.getClazz());
+		var.setPkg(varPkg);
+		System.out.println("instance Var name " + var.getName() + " Type " + var.getClazz() + " pkg " + var.getPkg());
 		instanceVariableMap.put(var.getName(), var);
 		//TODO:hanlde overriding.
 		//TODO: handle factory implementation.

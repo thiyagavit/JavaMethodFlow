@@ -4,6 +4,9 @@
  */
 package com.sample2;
 
+import com.test.ITestInterface;
+import com.test.impl.TestInterFaceImpl;
+
 /**
  * TODO Small and simple description of the type
  *
@@ -16,12 +19,16 @@ package com.sample2;
  */
 public class Rest2 {
 
+	private ITestInterface testInterface;
+	
 	public void printBye2() {
 		System.out.println("Bi");
-		printDone2();
+		calcSum();
 	}		
 	
-	public void printDone2() {
+	public void calcSum() {
 		System.out.println("Done");
-	}	
+		testInterface = new TestInterFaceImpl();
+		testInterface.addTwoNumber(2, 3);
+	}
 }
