@@ -115,6 +115,7 @@ public class MethodVisitor extends VoidVisitorAdapter {
 						//Static method calls. in static method scope contains static call details.
 						methodVar= new Variable();
 						methodVar.setClazz(mexpr.getScope().toString());
+						methodVar.setStaticVar(true);
 					} else {
 						//calling method within itself so no scope.
 						methodVar= new Variable();
@@ -138,17 +139,17 @@ public class MethodVisitor extends VoidVisitorAdapter {
 		var.setClazz(varExpr.getType().toString());
 		var.setName(varExpr.getVars().get(0).getId().toString());
 		String importString = imports.get(var.getClazz());
-		String pkg;
+		String varPkg;
 		
 		if(importString == null) {
 			
 			//Default package;
-			pkg = this.pkg;
+			varPkg = this.pkg;
 		} else {
-			pkg = importString.substring(0, importString.lastIndexOf(".") - 1);
+			varPkg = importString.substring(0, importString.lastIndexOf("."));
 		}
-		var.setPkg(pkg);
-		System.out.println("Var name " + var.getName() + " Type " + var.getClazz());
+		var.setPkg(varPkg);
+		System.out.println("Var name " + var.getName() + " Type " + var.getClazz() + " pkg " + var.getPkg());
 		variableMap.put(var.getName(), var);
 		super.visit(varExpr, arg);
 	}
@@ -173,7 +174,7 @@ public class MethodVisitor extends VoidVisitorAdapter {
 	@Override
 	public void visit(ImportDeclaration n, Object arg) {
 		String importLine = n.getName().toString();
-		imports.put(n.getName().getName(), n.getName().toString());
+		imports.put(n.getName().getName(), importLine);
 		System.out.println(importLine + "," + n.getName().getName());
 		//TODO: handle asterix imports
 		//System.out.println(n.isAsterisk());

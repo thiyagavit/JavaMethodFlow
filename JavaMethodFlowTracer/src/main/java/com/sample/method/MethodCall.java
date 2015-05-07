@@ -79,4 +79,28 @@ public class MethodCall {
 	Method caller;
 
 	List<Method> called;
+
+	/** 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString()
+	{
+		String callerStr = caller.toString();
+		StringBuffer buff = new StringBuffer();
+		buff.append("[").append(callerStr).append("] --> {");
+		
+		if(called != null && !called.isEmpty()) {
+
+			for(Method called : called) {
+				//TODO: trim comma at the end later.
+				buff.append("[").append(called.toString()).append("],");
+			}
+			
+		}
+		buff.append("}");
+		return buff.toString();
+	}
+	
+	
 }

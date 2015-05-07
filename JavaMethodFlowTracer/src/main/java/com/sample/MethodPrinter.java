@@ -39,7 +39,7 @@ public class MethodPrinter {
 	/**
 	 * Where is your dot program located? It will be called externally.
 	 */
-	private static final String DOT = "c:/Program Files (x86)/Graphviz2.38/bin/dot.exe";	
+	private static final String DOT = "c:/Program Files/Graphviz2.38/bin/dot.exe";	
 	
 	private static final String OUTPUT_DIR = "callgraphs\\";
 	
@@ -64,7 +64,9 @@ public class MethodPrinter {
 
 		}		
 		printer.processSrcDir(files);
-		
+		System.out.println("********** Complete Call Nodes ***************");
+		System.out.println(MethodCallContainer.getContainer().toString());
+		System.out.println("***********************************************");
 		printer.printMethodCallTreeForMethod(methodToPrintTreeFor);
 	}
 
@@ -140,8 +142,9 @@ public class MethodPrinter {
 
 	public void constructTree(GenericTreeNode<String> parentTreeNode, String methodName) {
 		GenericTreeNode<String> node = new GenericTreeNode<String>(methodName);
+		System.out.println("Adding child node [" + methodName + "]  to parent " + parentTreeNode.getData());
 		parentTreeNode.addChild(node);
-		MethodCall call = MethodCallContainer.getContainer().getMethodCalls().get(methodName);
+		MethodCall call = MethodCallContainer.getContainer().getMethodCall(methodName);
 
 		if(call != null) {
 			if(call.getCalled() != null && !call.getCalled().isEmpty()) {

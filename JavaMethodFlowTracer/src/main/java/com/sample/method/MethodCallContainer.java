@@ -4,6 +4,7 @@
  */
 package com.sample.method;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -62,5 +63,30 @@ public class MethodCallContainer {
 			methodCall.addCalled(called);
 			methodCalls.put(caller.getQualifiedName(), methodCall);
 		}    		
-	}    
+	}
+
+	public MethodCall getMethodCall(String caller) {
+		return methodCalls.get(caller);
+	}
+	
+	/** 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString()
+	{
+		StringBuffer buff = new StringBuffer();
+		if(methodCalls != null && !methodCalls.isEmpty()) {
+			Collection<MethodCall> calls = methodCalls.values();
+			buff.append("{\n");
+			
+			for(MethodCall call : calls) {
+				buff.append("{").append(call.toString()).append("}").append("\n");
+			}
+			buff.append("}");
+		}
+		return buff.toString();
+	} 
+	
+	
 }
