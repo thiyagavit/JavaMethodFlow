@@ -24,7 +24,7 @@ public class VariableStruct {
 	List<String> typeParams;
 	
 	//If variable type is an Interface, value type will be an implementation class of this interface.
-	String valueType;
+	QName valueType;
 	
 	boolean staticVar;
 
@@ -105,7 +105,7 @@ public class VariableStruct {
 	 *
 	 * @return the valueType
 	 */
-	public String getValueType()
+	public QName getValueType()
 	{
 		return valueType;
 	}
@@ -115,7 +115,7 @@ public class VariableStruct {
 	 *
 	 * @param valueType the valueType to set
 	 */
-	public void setValueType(String valueType)
+	public void setValueType(QName valueType)
 	{
 		this.valueType = valueType;
 	}

@@ -19,7 +19,7 @@ import com.test.impl.TestInterFaceImpl;
  */
 public class Rest2 {
 
-	private ITestInterface testInterface;
+	public ITestInterface testInterface;
 	
 	public void printBye2() {
 		System.out.println("Bi");
@@ -28,7 +28,10 @@ public class Rest2 {
 	
 	public void calcSum() {
 		System.out.println("Done");
-		testInterface = new TestInterFaceImpl();
+		
+		if(testInterface == null) {
+			testInterface = new TestInterFaceImpl();	
+		}		
 		testInterface.addTwoNumber(2, 3);
 	}
 }

@@ -11,8 +11,11 @@ import japa.parser.ast.body.ClassOrInterfaceDeclaration;
 import japa.parser.ast.body.FieldDeclaration;
 import japa.parser.ast.body.MethodDeclaration;
 import japa.parser.ast.body.Parameter;
+import japa.parser.ast.expr.AssignExpr;
 import japa.parser.ast.expr.Expression;
 import japa.parser.ast.expr.MethodCallExpr;
+import japa.parser.ast.expr.NameExpr;
+import japa.parser.ast.expr.ObjectCreationExpr;
 import japa.parser.ast.expr.VariableDeclarationExpr;
 import japa.parser.ast.stmt.BlockStmt;
 import japa.parser.ast.stmt.ExpressionStmt;
@@ -25,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.sample.base.ClassOrInterfaceStruct;
+import com.sample.base.ClassType;
 import com.sample.base.MethodCallStruct;
 import com.sample.base.MethodStruct;
 import com.sample.base.QName;
@@ -88,6 +92,12 @@ public class CustomVisitor extends VoidVisitorAdapter {
 		clazzStructInst.getQname().setClazz(n.getName());
 		clazzStructInst.getQname().setPkg(cu.getPackage().getName().toString());
 
+		if(n.isInterface()) {
+			clazzStructInst.setType(ClassType.INTERFACE);
+		} else {
+			clazzStructInst.setType(ClassType.CLASS);
+		}
+		
 		if ( n.getExtends() != null ) {
 			for ( ClassOrInterfaceType c : n.getExtends() ) {
 				String superClassStr = c.getName();
@@ -121,7 +131,7 @@ public class CustomVisitor extends VoidVisitorAdapter {
 		super.visit(n, arg);
 	}
 
-
+	
 	@Override
 	public void visit(FieldDeclaration n, Object arg) {
 		ClassOrInterfaceStruct parent = getClassOrInterfaceStruct(n);
@@ -156,10 +166,35 @@ public class CustomVisitor extends VoidVisitorAdapter {
 		var.getQname().setClazz(fieldType);		
 		var.getQname().setVar(n.getVariables().get(0).getId().toString());
 		var.setParent(parent);
+		Expression expr =  n.getVariables().get(0).getInit();
+		
+		//if variable is initilised with new keywork then get the actual type as well.
+		if(expr != null) {
+			
+			if(expr instanceof ObjectCreationExpr) {
+				ObjectCreationExpr obj_expr = (ObjectCreationExpr) expr;
+				var.setValueType(processObjecInitExpr(obj_expr, parent));
+			}
+		}
+		
 		parent.getVariables().put(var.getQname(), var);
 		super.visit(n, arg);
 	}
 
+	private QName processObjecInitExpr(ObjectCreationExpr obj_expr, ClassOrInterfaceStruct parent) {
+		String classStr =  obj_expr.getType().getName();
+		String classQualified = parent.getImports().get(classStr);
+		QName implTypeName = new QName();
+		implTypeName.setClazz(classStr);
+		
+		if(classQualified == null) {
+			//Default package handle.
+			implTypeName.setPkg(parent.getQname().getPkg());
+		} else {
+			implTypeName.setPkg(classQualified.substring(0, classQualified.lastIndexOf(".")));
+		}
+		return implTypeName;
+	}
 
 	@Override
 	public void visit(MethodDeclaration n, Object arg) {
@@ -205,13 +240,81 @@ public class CustomVisitor extends VoidVisitorAdapter {
 						VariableDeclarationExpr varExpr = (VariableDeclarationExpr) exp;
 						VariableStruct var  = evaluateVariableDeclExpr(varExpr, parent, m_struct);
 						methodVariables.put(var.getQname(), var);
+					} else if(exp instanceof AssignExpr) {
+						evaluateAssignExpr((AssignExpr) exp, parent, m_struct, methodVariables);
 					}
 				}
 			}			
 		}		
 	}
 
+	public void evaluateAssignExpr(AssignExpr a_expr, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct, Map<QName, VariableStruct> methodVariables) {
+		if(a_expr.getValue() instanceof ObjectCreationExpr) {
+			
+			if(a_expr.getTarget() instanceof NameExpr) {
+				String methodVarName = ((NameExpr)a_expr.getTarget()).getName();
+				
+				//Search at method 
+				
+				//Check for variable at class level. TODO method level and method call args check.
+				VariableStruct varStruct =  searchForVariable(methodVarName, parent, m_struct, methodVariables);
+				
+				if(varStruct != null) {
+					ObjectCreationExpr obj_expr = (ObjectCreationExpr) a_expr.getValue();
+					varStruct.setValueType(processObjecInitExpr(obj_expr, parent));	
+				}				
+			}
+		}		
+	}
+	
+	protected VariableStruct searchForVariable(String methodVarName, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct, Map<QName, VariableStruct> methodVariables) {
+		VariableStruct varStruct =  QNameUtils.searchVariableStruct(m_struct.getCallArgs(), methodVarName);
 
+		if(varStruct == null) {
+			varStruct =  QNameUtils.searchVariableStruct(methodVariables, methodVarName);
+
+		}
+		if(varStruct == null) {
+			//Search in instance variables.
+			varStruct =  QNameUtils.searchVariableStruct(parent.getVariables(), methodVarName);
+		}
+		
+		if(varStruct == null) {
+			//variables in not a method call var/ method var/instace var. so check if static var. static var has scope.
+			varStruct = new VariableStruct();
+			String clazz = methodVarName;
+			varStruct.getQname().setClazz(clazz);
+			varStruct.setStaticVar(true);
+			String fieldTypeQualified = parent.getImports().get(clazz);
+
+			if(fieldTypeQualified == null) {
+
+				try {						
+					if(clazz.contains(".")) {
+						//handle nested access. e.g : System.out.println() where out is nested within System;
+						clazz = clazz.substring(0, clazz.indexOf("."));
+					}
+					if(!LangUtils.isClassFromLangPackage(clazz)) {
+						fieldTypeQualified = parent.getQname().getPkg() + "." + clazz;
+					}
+				}
+				catch ( Exception e ) {
+					e.printStackTrace();
+				}
+
+			}
+
+			//Qualification not necessary for java.lang package.
+			if(fieldTypeQualified != null) {
+				varStruct.getQname().setPkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
+			}				
+
+		}		
+		return varStruct;
+	}
+	
 	public void evaluateMethodVariables(List<Parameter> methodCallArgs, ClassOrInterfaceStruct parent, 
 			MethodStruct m_struct) {
 		if(methodCallArgs != null && !methodCallArgs.isEmpty()) {
@@ -291,6 +394,18 @@ public class CustomVisitor extends VoidVisitorAdapter {
 		var.getQname().setMethod(m_struct.getQname().getMethod());
 		var.getQname().setVar(varExpr.getVars().get(0).getId().toString());
 		var.setParentMethod(m_struct);
+		
+		
+		Expression expr =  varExpr.getVars().get(0).getInit();
+		
+		//if variable is initilised with new keywork then get the actual type as well.
+		if(expr != null) {
+			
+			if(expr instanceof ObjectCreationExpr) {
+				ObjectCreationExpr obj_expr = (ObjectCreationExpr) expr;
+				var.setValueType(processObjecInitExpr(obj_expr, parent));
+			}
+		}
 		return var;
 	}
 
@@ -369,54 +484,18 @@ public class CustomVisitor extends VoidVisitorAdapter {
 			calledMethodQName.setClazz(m_struct.getQname().getClazz());
 		} else {
 			String methodVarName = mexpr.getScope().toString();
-
 			//search for method variable declaration to find the target method types. The target method variable declaration can be either at method level, or at   
 			//class object level or class level.
-			VariableStruct varStruct =  QNameUtils.searchVariableStruct(m_struct.getCallArgs(), methodVarName);
 
-			if(varStruct == null) {
-				varStruct =  QNameUtils.searchVariableStruct(methodVariables, methodVarName);
+			VariableStruct varStruct =  searchForVariable(methodVarName, parent, m_struct, methodVariables);
 
+			if(varStruct.getValueType() != null) {
+				calledMethodQName.setPkg(varStruct.getValueType().getPkg());
+				calledMethodQName.setClazz(varStruct.getValueType().getClazz());
+			} else {
+				calledMethodQName.setPkg(varStruct.getQname().getPkg());
+				calledMethodQName.setClazz(varStruct.getQname().getClazz());
 			}
-			if(varStruct == null) {
-				//Search in instance variables.
-				varStruct =  QNameUtils.searchVariableStruct(parent.getVariables(), methodVarName);
-			}
-
-			if(varStruct == null) {
-				//variables in not a method call var/ method var/instace var. so check if static var. static var has scope.
-				varStruct = new VariableStruct();
-				String clazz = mexpr.getScope().toString();
-				varStruct.getQname().setClazz(clazz);
-				varStruct.setStaticVar(true);
-				String fieldTypeQualified = parent.getImports().get(clazz);
-
-				if(fieldTypeQualified == null) {
-
-					try {						
-						if(clazz.contains(".")) {
-							//handle nested access. e.g : System.out.println() where out is nested within System;
-							clazz = clazz.substring(0, clazz.indexOf("."));
-						}
-						if(!LangUtils.isClassFromLangPackage(clazz)) {
-							fieldTypeQualified = parent.getQname().getPkg() + "." + clazz;
-						}
-					}
-					catch ( Exception e ) {
-						e.printStackTrace();
-					}
-
-				}
-
-				//Qualification not necessary for java.lang package.
-				if(fieldTypeQualified != null) {
-					varStruct.getQname().setPkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
-				}				
-
-			}			
-
-			calledMethodQName.setPkg(varStruct.getQname().getPkg());
-			calledMethodQName.setClazz(varStruct.getQname().getClazz());
 
 		}
 		return callStruct;

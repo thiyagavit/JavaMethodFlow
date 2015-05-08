@@ -24,6 +24,6 @@ public class TestInterFaceImpl implements ITestInterface {
 	}
 	
 	public void printAddedNumber(int sum) {
-		System.out.println("TestInterFaceImpl " + sum);
+		System.out.println("TestInterFaceImpl2 " + sum);
 	}
 }
