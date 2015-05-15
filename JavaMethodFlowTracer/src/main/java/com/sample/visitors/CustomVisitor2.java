@@ -1,0 +1,536 @@
+/*
+ * © 2009-2015 T-Systems International GmbH. All rights reserved
+ * _______________UTF-8 checked via this umlaut: ü
+ */
+package com.sample.visitors;
+
+import japa.parser.ast.CompilationUnit;
+import japa.parser.ast.ImportDeclaration;
+import japa.parser.ast.Node;
+import japa.parser.ast.body.ClassOrInterfaceDeclaration;
+import japa.parser.ast.body.FieldDeclaration;
+import japa.parser.ast.body.MethodDeclaration;
+import japa.parser.ast.body.Parameter;
+import japa.parser.ast.body.VariableDeclarator;
+import japa.parser.ast.expr.Expression;
+import japa.parser.ast.expr.ObjectCreationExpr;
+import japa.parser.ast.expr.VariableDeclarationExpr;
+import japa.parser.ast.type.ClassOrInterfaceType;
+import japa.parser.ast.visitor.VoidVisitorAdapter;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.sample.base.ClassOrInterfaceStruct2;
+import com.sample.base.ClassType;
+import com.sample.base.MethodStruct2;
+import com.sample.base.VariableStruct2;
+import com.sample.containers.ClassStructContainer2;
+import com.sample.utils.LangUtils;
+import com.sample.utils.MethodUtils;
+
+/**
+ * TODO Small and simple description of the type
+ *
+ * @copyright © 2009-2015 T-Systems International GmbH. All rights reserved
+ * @author 122305
+ * 
+ * @changes 
+ *    May 7, 2015: Created
+ *
+ */
+public class CustomVisitor2 extends VoidVisitorAdapter {
+
+	public Node getParentOfType(Node currentNode, Class parentType) {
+
+		if(currentNode.getParentNode() != null) {
+
+			if(parentType.isAssignableFrom(currentNode.getParentNode().getClass())) {
+				return currentNode.getParentNode();
+			} else {
+				return getParentOfType(currentNode.getParentNode(), parentType);
+			}
+		}
+		return null;
+	}
+
+
+	private ClassOrInterfaceStruct2 getClassOrInterfaceStruct(Node n) {
+		ClassOrInterfaceDeclaration clazzDec = (ClassOrInterfaceDeclaration) getParentOfType(n, ClassOrInterfaceDeclaration.class);
+		CompilationUnit cu = (CompilationUnit) getParentOfType(clazzDec, CompilationUnit.class);
+		String pkg = cu.getPackage().getName().toString();
+
+		//Get the class struct to which this field should be added.
+		String key = pkg + "." + clazzDec.getName();
+		ClassOrInterfaceStruct2 parent = ClassStructContainer2.getInstance().getClasses().get(key);
+		return parent;
+	}	
+
+	
+	private MethodStruct2 getMethodStruct(MethodDeclaration n, ClassOrInterfaceStruct2 parent) {		
+		String m_name = n.getName();
+		StringBuffer buff = new StringBuffer();
+		buff.append(parent.getQualifiedName()).append(".").append(m_name);
+		Map<String, VariableStruct2> paramMap = evaluateMethodVariables(n.getParameters(), parent, null);
+		
+		if(paramMap != null && !paramMap.isEmpty()) {
+			buff.append("<")
+				.append(MethodUtils.qnameCollToCSSepString(paramMap.keySet()))
+				.append(">");
+		}
+		String methodQName = buff.toString();
+		
+		if(parent.getMethods().containsKey(methodQName)) {
+			return parent.getMethods().get(methodQName);
+		}
+		return null;
+	}
+	
+	@Override
+	public void visit(ClassOrInterfaceDeclaration n, Object arg)
+	{
+
+		ClassOrInterfaceStruct2 clazzStructInst = new ClassOrInterfaceStruct2();
+		CompilationUnit cu = (CompilationUnit) getParentOfType(n, CompilationUnit.class);
+		if ( cu != null && cu.getImports() != null ) {
+			for ( ImportDeclaration i : cu.getImports() ) {
+				clazzStructInst.getImports().put(i.getName().getName(), i.getName().toString());
+				//TODO: handle asterick imports.
+			}
+		}
+
+		clazzStructInst.setName(n.getName());
+		clazzStructInst.setPkg(cu.getPackage().getName().toString());
+
+		if(n.isInterface()) {
+			clazzStructInst.setType(ClassType.INTERFACE);
+		} else {
+			clazzStructInst.setType(ClassType.CLASS);
+		}
+		
+		if ( n.getExtends() != null ) {
+			for ( ClassOrInterfaceType c : n.getExtends() ) {
+				String superClassStr = c.getName();
+
+				//Get Fully qualified name.
+				String supperClassQualified = clazzStructInst.getImports().get(superClassStr);
+
+				if(supperClassQualified == null) {
+					//Default package handle.
+					supperClassQualified = clazzStructInst.getQualifiedName();
+				}
+				clazzStructInst.getSuperClasses().put(superClassStr, supperClassQualified);
+			}
+		}
+
+		if ( n.getImplements() != null ) {
+			for ( ClassOrInterfaceType c : n.getImplements() ) {
+				String classStr = c.getName();
+
+				//Get Fully qualified name.
+				String classQualified = clazzStructInst.getImports().get(classStr);
+
+				if(classQualified == null) {
+					//Default package handle.
+					classQualified = clazzStructInst.getQualifiedName();
+				}
+				clazzStructInst.getInterfacesImplemented().put(classStr, classQualified);
+			}
+		}
+		ClassStructContainer2.getInstance().getClasses().put(clazzStructInst.getQualifiedName(), clazzStructInst);
+		super.visit(n, arg);
+	}
+
+	
+	@Override
+	public void visit(FieldDeclaration n, Object arg) {
+		ClassOrInterfaceStruct2 parent = getClassOrInterfaceStruct(n);
+		String fieldType = n.getType().toString();
+		String fieldTypeQualified = parent.getImports().get(fieldType);
+		VariableStruct2 var = new VariableStruct2();
+
+		if(fieldTypeQualified == null) {
+
+			try {
+				//Check if field type is primitive like int,boolaen etc.. if so ignore qualification.
+				if(!LangUtils.isPrimitiveType(fieldType)) {
+					//Check if the class belong to java.lang package
+					if(LangUtils.isClassFromLangPackage(fieldType)) {
+						fieldTypeQualified = "java.lang." + fieldType;
+					}  else {
+						//Default package.
+						//TODO: handle inline package decl
+						fieldTypeQualified = parent.getPkg() + "." + fieldType;
+					}
+				}
+			}
+			catch ( Exception e ) {
+				e.printStackTrace();
+			}
+
+		}
+
+		if(fieldTypeQualified != null) {
+			var.setTypePkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
+		}		
+		var.setType(fieldType);		
+		var.setName(n.getVariables().get(0).getId().toString());
+		var.setParent(parent);
+		Expression expr =  n.getVariables().get(0).getInit();
+		
+		//if variable is initilised with new keywork then get the actual type as well.
+		if(expr != null) {
+			
+			if(expr instanceof ObjectCreationExpr) {
+				ObjectCreationExpr obj_expr = (ObjectCreationExpr) expr;
+				var.setValueTypeQualified(processObjecInitExpr(obj_expr, parent));
+			}
+		}
+		
+		parent.getVariables().put(var.getQualifiedName(), var);
+		super.visit(n, arg);
+	}
+
+	private String processObjecInitExpr(ObjectCreationExpr obj_expr, ClassOrInterfaceStruct2 parent) {
+		String classStr =  obj_expr.getType().getName();
+		String classQualified = parent.getImports().get(classStr);
+		String pkg = null;
+		
+		if(classQualified == null) {
+			//Default package handle.
+			pkg = parent.getPkg();
+		} else {
+			pkg = classQualified.substring(0, classQualified.lastIndexOf("."));
+		}
+		return pkg + "." + classStr;
+	}
+
+	@Override
+	public void visit(MethodDeclaration n, Object arg) {
+		ClassOrInterfaceStruct2 parent = getClassOrInterfaceStruct(n);
+		MethodStruct2 m_struct = new MethodStruct2();
+		m_struct.setName(n.getName());
+		m_struct.setClazz(parent.getName());
+		m_struct.setPkg(parent.getPkg());
+		m_struct.setParent(parent);
+
+		//Extract method call arguments and store in method.
+		m_struct.getCallArgs().putAll(evaluateMethodVariables(n.getParameters(), parent, m_struct));
+
+		//evaluateMethodBody(n.getBody(), parent, m_struct);		
+		parent.getMethods().put(m_struct.getQualifiedName(), m_struct);
+		super.visit(n, arg);
+	}
+	
+	public void visit(VariableDeclarationExpr n, Object arg)
+	{
+
+		
+		super.visit(n, arg);
+		
+		ClassOrInterfaceStruct2 parent = getClassOrInterfaceStruct(n);
+		
+		//Get the method that contains this variable dec (if this is local to method) if present.
+		MethodDeclaration methodDec = (MethodDeclaration) getParentOfType(n, MethodDeclaration.class);
+		
+		
+		if(methodDec != null) {
+			
+			//This variable is declared within a method.
+			
+		}
+	}
+	
+
+/*	public void evaluateMethodBody(BlockStmt body, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct) {
+
+		//Variables declared within method body.
+		Map<QName, VariableStruct> methodVariables = new HashMap<QName, VariableStruct>();
+
+		//parse method  body if present.
+		//Interfaces do not have body. so ignore.
+		if(body != null) {
+
+			List<Statement> stmts = body.getStmts();
+
+			for ( Statement stmt : stmts ) {
+
+				if ( stmt instanceof ExpressionStmt ) {
+					ExpressionStmt exprStmt = (ExpressionStmt)stmt;
+					Expression exp = exprStmt.getExpression();
+
+					if ( exp instanceof MethodCallExpr ) {
+						MethodCallExpr mexpr = (MethodCallExpr)exp;
+						MethodCallStruct m_callStruct = evaluateMethodCallExpr(mexpr, parent, m_struct, methodVariables);
+						m_struct.getCalledMethods().add(m_callStruct);
+					} else if(exp instanceof VariableDeclarationExpr) {
+						VariableDeclarationExpr varExpr = (VariableDeclarationExpr) exp;
+						VariableStruct var  = evaluateVariableDeclExpr(varExpr, parent, m_struct);
+						methodVariables.put(var.getQname(), var);
+					} else if(exp instanceof AssignExpr) {
+						evaluateAssignExpr((AssignExpr) exp, parent, m_struct, methodVariables);
+					}
+				}
+			}			
+		}		
+	}
+
+	public void evaluateAssignExpr(AssignExpr a_expr, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct, Map<QName, VariableStruct> methodVariables) {
+		if(a_expr.getValue() instanceof ObjectCreationExpr) {
+			
+			if(a_expr.getTarget() instanceof NameExpr) {
+				String methodVarName = ((NameExpr)a_expr.getTarget()).getName();
+				
+				//Search at method 
+				
+				//Check for variable at class level. TODO method level and method call args check.
+				VariableStruct varStruct =  searchForVariable(methodVarName, parent, m_struct, methodVariables);
+				
+				if(varStruct != null) {
+					ObjectCreationExpr obj_expr = (ObjectCreationExpr) a_expr.getValue();
+					varStruct.setValueType(processObjecInitExpr(obj_expr, parent));	
+				}				
+			}
+		}		
+	}
+	*/
+	
+/*	protected VariableStruct searchForVariable(String methodVarName, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct, Map<QName, VariableStruct> methodVariables) {
+		VariableStruct varStruct =  QNameUtils.searchVariableStruct(m_struct.getCallArgs(), methodVarName);
+
+		if(varStruct == null) {
+			varStruct =  QNameUtils.searchVariableStruct(methodVariables, methodVarName);
+
+		}
+		if(varStruct == null) {
+			//Search in instance variables.
+			varStruct =  QNameUtils.searchVariableStruct(parent.getVariables(), methodVarName);
+		}
+		
+		if(varStruct == null) {
+			//variables in not a method call var/ method var/instace var. so check if static var. static var has scope.
+			varStruct = new VariableStruct();
+			String clazz = methodVarName;
+			varStruct.getQname().setClazz(clazz);
+			varStruct.setStaticVar(true);
+			String fieldTypeQualified = parent.getImports().get(clazz);
+
+			if(fieldTypeQualified == null) {
+
+				try {						
+					if(clazz.contains(".")) {
+						//handle nested access. e.g : System.out.println() where out is nested within System;
+						clazz = clazz.substring(0, clazz.indexOf("."));
+					}
+					if(!LangUtils.isClassFromLangPackage(clazz)) {
+						fieldTypeQualified = parent.getQname().getPkg() + "." + clazz;
+					}
+				}
+				catch ( Exception e ) {
+					e.printStackTrace();
+				}
+
+			}
+
+			//Qualification not necessary for java.lang package.
+			if(fieldTypeQualified != null) {
+				varStruct.getQname().setPkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
+			}				
+
+		}		
+		return varStruct;
+	} */
+	
+	public Map<String, VariableStruct2> evaluateMethodVariables(List<Parameter> methodCallArgs, ClassOrInterfaceStruct2 parent, 
+			MethodStruct2 m_struct) {
+		if(methodCallArgs != null && !methodCallArgs.isEmpty()) {
+			Map<String, VariableStruct2> params = new LinkedHashMap<String, VariableStruct2>();
+
+			for(Parameter methodCallArg : methodCallArgs) {
+				VariableStruct2 var = new VariableStruct2();
+				String fieldType = methodCallArg.getType().toString();
+				String fieldTypeQualified = parent.getImports().get(fieldType);
+
+				if(fieldTypeQualified == null) {
+					try {
+						//Check if field type is primitive like int,boolaen etc.. if so ignore qualification.
+						if(!LangUtils.isPrimitiveType(fieldType)) {
+							//Check if the class belong to java.lang package
+							if(LangUtils.isClassFromLangPackage(fieldType)) {
+								fieldTypeQualified = "java.lang." + fieldType;
+							}  else {
+								//Default package.
+								//TODO: handle inline package decl
+								fieldTypeQualified = parent.getPkg() + "." + fieldType;
+							}
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+
+				if(fieldTypeQualified != null) {
+					var.setTypePkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
+				}
+				
+				var.setType(fieldType);		
+				var.setName(methodCallArg.getId().getName());
+				var.setParentMethod(m_struct);
+				//m_struct.getCallArgs().put(var.getQualifiedName(), var);
+				params.put(var.getQualifiedName(), var);
+				return params; 
+			}
+		}
+		return null;		
+	}
+	
+	/*
+	public VariableStruct evaluateVariableDeclExpr(VariableDeclarationExpr varExpr, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct) {
+		VariableStruct var  = new VariableStruct();
+
+		String fieldType = varExpr.getType().toString();
+		String fieldTypeQualified = parent.getImports().get(fieldType);
+
+		
+		if(fieldTypeQualified == null) {
+
+			try {
+				//Check if field type is primitive like int,boolaen etc.. if so ignore qualification.
+				if(!LangUtils.isPrimitiveType(fieldType)) {
+					//Check if the class belong to java.lang package
+					if(LangUtils.isClassFromLangPackage(fieldType)) {
+						fieldTypeQualified = "java.lang." + fieldType;
+					}  else {
+						//Default package.
+						//TODO: handle inline package decl
+						fieldTypeQualified = parent.getQname().getPkg() + "." + fieldType;
+					}
+				}
+			}
+			catch ( Exception e ) {
+				e.printStackTrace();
+			}
+
+		}
+
+		if(fieldTypeQualified != null) {
+			var.getQname().setPkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
+		}		
+		var.getQname().setClazz(fieldType);		
+		var.getQname().setMethod(m_struct.getQname().getMethod());
+		var.getQname().setVar(varExpr.getVars().get(0).getId().toString());
+		var.setParentMethod(m_struct);
+		
+		
+		Expression expr =  varExpr.getVars().get(0).getInit();
+		
+		//if variable is initilised with new keywork then get the actual type as well.
+		if(expr != null) {
+			
+			if(expr instanceof ObjectCreationExpr) {
+				ObjectCreationExpr obj_expr = (ObjectCreationExpr) expr;
+				var.setValueType(processObjecInitExpr(obj_expr, parent));
+			}
+		}
+		return var;
+	}*/
+
+	/*
+	 *
+	 ****** Case -1 : method var. ex: ******
+		 	sayHello{
+				Rest rest = new Rest();
+				rest.printbye();
+		   	}
+
+			VariableStruct 
+	 			pkg = com.sample
+	 			clazz = Rest
+	 			method = sayHello
+	 			var = rest
+
+	   		calledmethodQname
+	 			pkg = com.sample
+	 			clazz = Rest
+	 			method = printBye
+
+	 ****** case-2: instance var. eg:  ******
+
+	 		class Test {
+	 			Rest rest = new Rest();
+				 sayHello{					
+					rest.printbye();
+				   }	 		
+	 		}
+
+			VariableStruct 
+	 			pkg = com.sample
+	 			clazz = Rest
+	 			var = rest
+
+	   		calledmethodQname
+	 			pkg = com.sample
+	 			clazz = Rest
+	 			method = printBye
+
+	 ****** case-3: static var. eg:  ******
+
+	 		class Test {
+	 			import com.sample.Rest;
+
+				 sayHello{					
+					Rest.printbye();
+				   }	 		
+	 		}
+
+			VariableStruct 
+	 			pkg = com.sample
+	 			clazz = Rest
+
+	   		calledmethodQname
+	 			pkg = com.sample
+	 			clazz = Rest
+	 			method = printBye
+
+
+	 */
+/*	public MethodCallStruct evaluateMethodCallExpr(MethodCallExpr mexpr, ClassOrInterfaceStruct parent, 
+			MethodStruct m_struct, Map<QName, VariableStruct> methodVariables) {
+		MethodCallStruct callStruct = new MethodCallStruct();
+		QName calledMethodQName = new QName();
+		calledMethodQName.setMethod(mexpr.getName());
+		callStruct.setCalledMethod(calledMethodQName);
+
+		//TODO: evaluate method args and add to MethodCallStruct.
+		List<Expression> args = mexpr.getArgs();
+
+		if(mexpr.getScope() == null) {
+			//scope is null which means the source and target methods are availble in same class. so use pkg, clazz values of the parent source method itself.
+			calledMethodQName.setPkg(m_struct.getQname().getPkg());
+			calledMethodQName.setClazz(m_struct.getQname().getClazz());
+		} else {
+			String methodVarName = mexpr.getScope().toString();
+			//search for method variable declaration to find the target method types. The target method variable declaration can be either at method level, or at   
+			//class object level or class level.
+
+			VariableStruct varStruct =  searchForVariable(methodVarName, parent, m_struct, methodVariables);
+
+			if(varStruct.getValueType() != null) {
+				calledMethodQName.setPkg(varStruct.getValueType().getPkg());
+				calledMethodQName.setClazz(varStruct.getValueType().getClazz());
+			} else {
+				calledMethodQName.setPkg(varStruct.getQname().getPkg());
+				calledMethodQName.setClazz(varStruct.getQname().getClazz());
+			}
+
+		}
+		return callStruct;
+
+	}
+*/
+}
