@@ -7,6 +7,7 @@ package com.sample.base;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -347,6 +348,19 @@ public class ClassOrInterfaceStruct2 {
 	public String getQualifiedName() {
 		
 		return this.pkg + "." + this.name;
+	}
+	
+	public List<MethodStruct2> getMatchingMethods(String methodQnameWithoutArgs) {		
+		List<MethodStruct2> m_list = new LinkedList<MethodStruct2>();
+		
+		if(this.getMethods() != null && !this.getMethods().isEmpty()) {
+			for(MethodStruct2 m_struct : this.getMethods().values()) {
+				if(m_struct.getQualifiedNameWithoutArgs().equals(methodQnameWithoutArgs)) {
+					m_list.add(m_struct);
+				}
+			}
+		}
+		return m_list;
 	}
 
 	/** 

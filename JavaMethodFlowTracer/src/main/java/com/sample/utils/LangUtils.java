@@ -11,9 +11,14 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -40,6 +45,8 @@ public class LangUtils {
 	private static Set<String> libJarClasses = new HashSet<String>();
 
 	private static Set<String> PRIMITIVE_TYPES = new HashSet<String>();
+	
+	private static Map<String, Map<String, String>> asterickImportCacheMap = new HashMap<String, Map<String,String>>();
 	
 	static {
 		PRIMITIVE_TYPES.add("boolean");
@@ -79,7 +86,9 @@ public class LangUtils {
 			"testinputdir"
 		}; 
 		System.out.println(getClassesFromProjectSrcDirs(SRC_DIRS));
-		
+		getlibJarClasses();
+		getLangPkgClasses();
+		resolveAsterickImport("japa.parser.*");
 	}
 
 	public static Set<String> getlibJarClasses() {
@@ -158,36 +167,62 @@ public class LangUtils {
 			for(String srcDir : srcsPath) {
 				files[i++] = new File(srcDir);
 			}
-			processSrcDir(files, null);
+			searchForJavaFiles(files, null);
 		}
 		return prjSrcClasses;
 	}
 	
-	public static void processSrcDir(File[] files, File rootSrcDir) {
+	public static void searchForJavaFiles(File[] files, File rootSrcDir) {
 		for (File file : files) {
 
 			if(rootSrcDir == null) {
 				rootSrcDir = file;
 			}
 			if (file.isDirectory()) {
-				processSrcDir(file.listFiles(), rootSrcDir);
+				searchForJavaFiles(file.listFiles(), rootSrcDir);
 			} else if(file.getName().endsWith(".java")) {
 				String projSrcRelFileName = rootSrcDir.toURI().relativize(file.toURI()).getPath();
-				prjSrcClasses.add(projSrcRelFileName.replaceAll(".java", ".class"));
+				projSrcRelFileName = projSrcRelFileName.replaceAll(" ", "");
+				prjSrcClasses.add(projSrcRelFileName.replace(".java", ".class"));
 			}
 		}
 	}
 	
-	public static Set<String> resolveAsterickImport(String asterickImportLine) {
-		Set<String> classes = new HashSet<String>();
+	public static Map<String, String> resolveAsterickImport(String asterickImportLine) {
 		
-		String pkgFromImportLine = asterickImportLine.substring(0, asterickImportLine.indexOf(".*"));
+		Map<String, String> classesMap = asterickImportCacheMap.get(asterickImportLine);
 		
-		//Search in project dir.
-		
-		
-		
-		return classes;
+		if(classesMap == null) {
+			classesMap = new LinkedHashMap<String, String>();
+			
+			String pkgFromImportLine = asterickImportLine.substring(0, asterickImportLine.indexOf(".*"));
+			pkgFromImportLine = pkgFromImportLine.replaceAll("\\.", "/");
+			String pattern = pkgFromImportLine +"/\\w+\\.class";
+			System.out.println("pattern  : " + pattern);
+			Pattern pattenObj = Pattern.compile(pattern); 
+					
+			//Search in project dir.
+			for(String clazz : prjSrcClasses) {
+				Matcher matcher = pattenObj.matcher(clazz);
+				if(matcher.matches()) {
+					String className = clazz.substring(pkgFromImportLine.length() + 1, clazz.indexOf(".class"));
+					classesMap.put(className, clazz);
+				}
+			}
+			
+			//Search in lib dir.
+			for(String clazz : libJarClasses) {
+				Matcher matcher = pattenObj.matcher(clazz);
+				if(matcher.matches()) {
+					String className = clazz.substring(pkgFromImportLine.length() + 1, clazz.indexOf(".class"));
+					classesMap.put(className, clazz);
+				}
+			}
+			
+			System.out.println(classesMap);
+			asterickImportCacheMap.put(asterickImportLine, classesMap);
+		}
+		return classesMap;
 	}
 	
 	public static boolean isPrimitiveType(String type) {

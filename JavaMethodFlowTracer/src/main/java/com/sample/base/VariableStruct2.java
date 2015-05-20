@@ -205,14 +205,28 @@ public class VariableStruct2 {
 		this.valueTypeQualified = valueTypeQualified;
 	}
 
-	public String getQualifiedName() {
+	public String getQualifiedNameWithoutVarName() {
 		StringBuffer buff = new StringBuffer();
 		
 		if(this.typePkg != null) {
 			//would be null for primitives like int,short etc..
 			buff.append(this.typePkg).append(".");
 		}
-		buff.append(this.type).append(".").append(this.name);
+		if(this.type != null) {
+			buff.append(this.type);	
+		}
+		
+		return buff.toString();
+	}
+	
+	public String getQualifiedName() {
+		StringBuffer buff = new StringBuffer();
+		buff.append(getQualifiedNameWithoutVarName());
+		
+		if(this.name != null) {
+			buff.append(".").append(this.name);	
+		}
+		
 		return buff.toString();
 	}
 

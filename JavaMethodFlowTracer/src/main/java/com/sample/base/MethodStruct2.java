@@ -36,6 +36,9 @@ public class MethodStruct2 {
 	
 	Map<String, VariableStruct2> callArgs = new LinkedHashMap<String, VariableStruct2>();
 	
+	Map<String, VariableStruct2> vars = new LinkedHashMap<String, VariableStruct2>();
+
+	
 	ClassOrInterfaceStruct2 parent;
 	
 	List<MethodCallStruct2> calledMethods = new LinkedList<MethodCallStruct2>();
@@ -248,18 +251,50 @@ public class MethodStruct2 {
 		this.staticMethod = staticMethod;
 	}
 
-	public String getQualifiedName() {
-		//TODO: Handle polymorphism.
+	
+	
+	/**
+	 * Gets the vars
+	 *
+	 * @return the vars
+	 */
+	public Map<String, VariableStruct2> getVars()
+	{
+		return vars;
+	}
+
+	/**
+	 * Sets the vars value
+	 *
+	 * @param vars the vars to set
+	 */
+	public void setVars(Map<String, VariableStruct2> vars)
+	{
+		this.vars = vars;
+	}
+
+	public String getQualifiedNameWithoutArgs() {
 		StringBuffer buff = new StringBuffer();
 		buff.append(this.pkg).append(".")
 			.append(this.clazz).append(".")
 			.append(this.name);
+		return buff.toString();
+	}
+	
+	public String getArgsAsCSSep() {
 		
 		if(this.callArgs != null && !this.callArgs.isEmpty()) {
+			StringBuffer buff = new StringBuffer();
+
 			int i = 1;
 			buff.append("<");
 			for(VariableStruct2 var : this.callArgs.values()) {
-				buff.append(var.getQualifiedName());
+				if(var.getTypePkg() != null) {
+					buff.append(var.getTypePkg()).append(".");
+				}
+				if(var.getType() != null) {
+					buff.append(var.getType());	
+				}
 				
 				if(i < this.callArgs.size()) {
 					buff.append(",");
@@ -267,8 +302,15 @@ public class MethodStruct2 {
 				i++;
 			}
 			buff.append(">");
+			return buff.toString();
 		}
-		
+		return "";
+	}
+	
+	public String getQualifiedNameWithArgs() {
+		StringBuffer buff = new StringBuffer();
+		buff.append(getQualifiedNameWithoutArgs())
+			.append(getArgsAsCSSep());
 		return buff.toString();
 	}
 
@@ -278,7 +320,7 @@ public class MethodStruct2 {
 	@Override
 	public String toString()
 	{
-		return "MethodStruct2 [qname=" + getQualifiedName() + ", returnType=" + returnType 
+		return "MethodStruct2 [qname=" + getQualifiedNameWithArgs() + ", returnType=" + returnType 
 				+ ", callArgs=" + new PrettyPrintingMap<String, VariableStruct2>(callArgs) + ", calledMethods=" + calledMethods + "]";
 	}
 	

@@ -4,7 +4,6 @@
  */
 package com.sample.base;
 
-import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -23,7 +22,36 @@ public class MethodCallStruct2 {
 	//Qualified name of called method.
 	String calledMethod;
 	
-	List<VariableStruct2> callArgs = new LinkedList<VariableStruct2>();
+	List<String> callArgs = new LinkedList<String>();
+
+	String returnType;
+	
+	
+	/**
+	 * Gets the returnType
+	 *
+	 * @return the returnType
+	 */
+	public String getReturnType()
+	{
+		return returnType;
+	}
+
+
+
+
+	/**
+	 * Sets the returnType value
+	 *
+	 * @param returnType the returnType to set
+	 */
+	public void setReturnType(String returnType)
+	{
+		this.returnType = returnType;
+	}
+
+
+
 
 	/**
 	 * Gets the calledMethod
@@ -56,7 +84,7 @@ public class MethodCallStruct2 {
 	 *
 	 * @return the callArgs
 	 */
-	public List<VariableStruct2> getCallArgs()
+	public List<String> getCallArgs()
 	{
 		return callArgs;
 	}
@@ -69,9 +97,56 @@ public class MethodCallStruct2 {
 	 *
 	 * @param callArgs the callArgs to set
 	 */
-	public void setCallArgs(List<VariableStruct2> callArgs)
+	public void setCallArgs(List<String> callArgs)
 	{
 		this.callArgs = callArgs;
+	}
+
+
+
+
+	/** 
+	 * @see java.lang.Object#hashCode()
+	 */
+	@Override
+	public int hashCode()
+	{
+		final int prime = 31;
+		int result = 1;
+		result = prime * result + ( ( callArgs == null ) ? 0 : callArgs.hashCode() );
+		result = prime * result + ( ( calledMethod == null ) ? 0 : calledMethod.hashCode() );
+		return result;
+	}
+
+
+
+
+	/** 
+	 * @see java.lang.Object#equals(java.lang.Object)
+	 */
+	@Override
+	public boolean equals(Object obj)
+	{
+		if ( this == obj )
+			return true;
+		if ( obj == null )
+			return false;
+		if ( getClass() != obj.getClass() )
+			return false;
+		MethodCallStruct2 other = (MethodCallStruct2)obj;
+		if ( callArgs == null ) {
+			if ( other.callArgs != null )
+				return false;
+		}
+		else if ( !callArgs.equals(other.callArgs) )
+			return false;
+		if ( calledMethod == null ) {
+			if ( other.calledMethod != null )
+				return false;
+		}
+		else if ( !calledMethod.equals(other.calledMethod) )
+			return false;
+		return true;
 	}
 
 

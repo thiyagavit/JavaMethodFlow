@@ -12,15 +12,15 @@ import japa.parser.ast.visitor.VoidVisitorAdapter;
 import java.io.File;
 import java.io.IOException;
 
-import com.sample.base.MethodCallStruct;
-import com.sample.base.MethodStruct;
-import com.sample.base.QName;
-import com.sample.containers.ClassStructContainer;
+import com.sample.base.MethodCallStruct2;
+import com.sample.base.MethodStruct2;
+import com.sample.containers.ClassStructContainer2;
 import com.sample.graphviz.GraphViz;
 import com.sample.tree.GenericTree;
 import com.sample.tree.GenericTreeNode;
 import com.sample.utils.LangUtils;
-import com.sample.visitors.CustomVisitor;
+import com.sample.visitors.CustomVisitor2;
+import com.sample.visitors.MethodSigVisitor;
 
 /**
  * TODO Small and simple description of the type
@@ -32,7 +32,7 @@ import com.sample.visitors.CustomVisitor;
  *    May 7, 2015: Created
  *
  */
-public class SourceParser {
+public class SourceParser2 {
 
 	/**
 	 * The dir. where temporary files will be created.
@@ -58,7 +58,7 @@ public class SourceParser {
 		LangUtils.getlibJarClasses();
 		LangUtils.getClassesFromProjectSrcDirs(SRC_DIRS);
 		
-		SourceParser parser = new SourceParser();
+		SourceParser2 parser = new SourceParser2();
 		File[] files = new File[SRC_DIRS.length];
 		int i = 0;
 
@@ -67,31 +67,29 @@ public class SourceParser {
 
 		}
 		
-		parser.processSrcDir(files);
+		parser.processSrcDir(files, true);
+		parser.processSrcDir(files, false);
 		System.out.println("************************************");
-		System.out.println(ClassStructContainer.getInstance().toString());
+		System.out.println(ClassStructContainer2.getInstance().toString());
 		System.out.println("************************************");
-		QName qname = new QName();
-		qname.setPkg("com.sample");
-		qname.setClazz("Test");
-		qname.setMethod("printHello");
-		parser.printMethodCallTreeForMethod(qname);
+		String methodName = "com.sample.Test.printHello";
+		parser.printMethodCallTreeForMethod(methodName);
 	}
 
-	public void processSrcDir(File[] files) throws ParseException, IOException {
+	public void processSrcDir(File[] files, boolean buildModelAlone) throws ParseException, IOException {
 		for (File file : files) {
 
 			if (file.isDirectory()) {
-				processSrcDir(file.listFiles());
+				processSrcDir(file.listFiles(), buildModelAlone);
 			} else if(file.getName().endsWith(".java")) {        	
-				processMethodCallTree(file);	
+				processMethodCallTree(file, buildModelAlone);	
 			}
 		}
 	}
 	
-	public void processMethodCallTree(File file) throws ParseException, IOException {
-		System.out.println("Processing java File " + file.getName());
-		VoidVisitorAdapter visitor = new CustomVisitor();
+	public void processMethodCallTree(File file, boolean buildModelAlone) throws ParseException, IOException {
+		System.out.println("Processing java File " + file.getName() + " buildModelAlone mode : " + buildModelAlone);
+		VoidVisitorAdapter visitor = buildModelAlone ? new MethodSigVisitor() : new CustomVisitor2();
 		CompilationUnit cu = JavaParser.parse(file);
 
 		// visit and print the methods names
@@ -99,17 +97,17 @@ public class SourceParser {
 
 	}		
 	
-	private void printMethodCallTreeForMethod(QName method) {
+	private void printMethodCallTreeForMethod(String methodQName) {
 		GenericTree<String> tree = new GenericTree<String>();
 		GenericTreeNode<String> dummyRoot = new GenericTreeNode<String>("start");
-		constructTree(dummyRoot, method);
+		constructTree(dummyRoot, methodQName);
 		tree.setRoot(dummyRoot);		
 		System.out.println(tree.toStringWithDepth());
-		writeAsGraphVizFile(tree, method);
+		writeAsGraphVizFile(tree, methodQName);
 	}
 	
 	//NOTE: GrpahViz must be installed in the system to generate call graph.
-	public void writeAsGraphVizFile(GenericTree<String> tree, QName method) {
+	public void writeAsGraphVizFile(GenericTree<String> tree, String methodQName) {
 		String type = "gif";// can be dot, pdf, svg, png.
 		GraphViz gv = new GraphViz(DOT, TEMP_DIR);
 		
@@ -130,7 +128,7 @@ public class SourceParser {
 		buildWithDepth(gv, tree.getRoot());
 		gv.addln(gv.end_graph());
 		System.out.println(gv.getDotSource());
-		String fileName = method + Long.toString(System.currentTimeMillis()) + "." + type; 
+		String fileName = methodQName + Long.toString(System.currentTimeMillis()) + "." + type; 
 		File out = new File(OUTPUT_DIR + fileName);
 		gv.writeGraphToFile( gv.getGraph( gv.getDotSource(), type ), out );
 	}
@@ -148,18 +146,19 @@ public class SourceParser {
 	}
 	
 
-	public void constructTree(GenericTreeNode<String> parentTreeNode, QName methodName) {
-		GenericTreeNode<String> node = new GenericTreeNode<String>(methodName.toString());
+	public void constructTree(GenericTreeNode<String> parentTreeNode, String methodName) {
+		GenericTreeNode<String> node = new GenericTreeNode<String>(methodName);
 		System.out.println("Adding child node [" + methodName + "]  to parent " + parentTreeNode.getData());
 		parentTreeNode.addChild(node);
 		
-		MethodStruct m_struct = ClassStructContainer.getInstance().getMatchingMethod(methodName);
+		MethodStruct2 m_struct = ClassStructContainer2.getInstance().getMatchingMethod(methodName, null, node, null);
 
 		if(m_struct != null) {
 			
 			if(m_struct.getCalledMethods() != null && !m_struct.getCalledMethods().isEmpty()) {
+				System.out.println("Method "+ methodName + " Called methods : " + m_struct.getCalledMethods().toString());
 				
-				for(MethodCallStruct called : m_struct.getCalledMethods()) {
+				for(MethodCallStruct2 called : m_struct.getCalledMethods()) {
 					
 					//Ignore cyclic method calls.
 					if(!methodName.equals(called.getCalledMethod())) {

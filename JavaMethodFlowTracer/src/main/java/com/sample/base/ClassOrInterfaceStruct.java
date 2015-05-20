@@ -4,12 +4,9 @@
  */
 package com.sample.base;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
-import com.sample.method.Variable;
 import com.sample.utils.PrettyPrintingMap;
 
 /**
@@ -27,22 +24,22 @@ public class ClassOrInterfaceStruct {
 	
 	QName qname = new QName();
 	
-	Map<QName, MethodStruct> methods = new HashMap<QName, MethodStruct>();
+	Map<QName, MethodStruct> methods = new LinkedHashMap<QName, MethodStruct>();
 
 	//instance variables and static variables. 
-	Map<QName, VariableStruct> variables = new HashMap<QName, VariableStruct>();
+	Map<QName, VariableStruct> variables = new LinkedHashMap<QName, VariableStruct>();
 
 	//Applicable only for class
-	Map<String, String> interfacesImplemented = new HashMap<String, String>();
+	Map<String, String> interfacesImplemented = new LinkedHashMap<String, String>();
 	
 	//In case of Interface this can be more than one. In case of class however only one.
-	Map<String, String> superClasses = new HashMap<String, String>();
+	Map<String, String> superClasses = new LinkedHashMap<String, String>();
 	
 	//Format<classname, fullyqualified name of import> ex: <String,java.lang.String>
-	Map<String, String> imports = new HashMap<String, String>();
+	Map<String, String> imports = new LinkedHashMap<String, String>();
 	
 	//For Generics. TODO
-	Map<String, String> typeParams = new HashMap<String, String>();
+	Map<String, String> typeParams = new LinkedHashMap<String, String>();
 	
 	//In case of inner/anonymous class.
 	String parent;

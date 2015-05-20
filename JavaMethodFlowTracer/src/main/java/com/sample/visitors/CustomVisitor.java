@@ -26,6 +26,7 @@ import japa.parser.ast.visitor.VoidVisitorAdapter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.sample.base.ClassOrInterfaceStruct;
 import com.sample.base.ClassType;
@@ -84,7 +85,11 @@ public class CustomVisitor extends VoidVisitorAdapter {
 		CompilationUnit cu = (CompilationUnit) getParentOfType(n, CompilationUnit.class);
 		if ( cu != null && cu.getImports() != null ) {
 			for ( ImportDeclaration i : cu.getImports() ) {
-				clazzStructInst.getImports().put(i.getName().getName(), i.getName().toString());
+				if(i.isAsterisk()) {
+					clazzStructInst.getImports().putAll(LangUtils.resolveAsterickImport(i.getName().toString()));
+				} else {
+					clazzStructInst.getImports().put(i.getName().getName(), i.getName().toString());	
+				}				
 				//TODO: handle asterick imports.
 			}
 		}
