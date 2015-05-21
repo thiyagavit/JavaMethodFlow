@@ -195,7 +195,7 @@ public class LangUtils {
 		if(classesMap == null) {
 			classesMap = new LinkedHashMap<String, String>();
 			
-			String pkgFromImportLine = asterickImportLine.substring(0, asterickImportLine.indexOf(".*"));
+			String pkgFromImportLine = asterickImportLine;
 			pkgFromImportLine = pkgFromImportLine.replaceAll("\\.", "/");
 			String pattern = pkgFromImportLine +"/\\w+\\.class";
 			System.out.println("pattern  : " + pattern);
@@ -206,6 +206,8 @@ public class LangUtils {
 				Matcher matcher = pattenObj.matcher(clazz);
 				if(matcher.matches()) {
 					String className = clazz.substring(pkgFromImportLine.length() + 1, clazz.indexOf(".class"));
+					clazz = clazz.replaceAll("/", "\\.");
+					clazz = clazz.replaceAll(".class", "");
 					classesMap.put(className, clazz);
 				}
 			}
@@ -215,6 +217,8 @@ public class LangUtils {
 				Matcher matcher = pattenObj.matcher(clazz);
 				if(matcher.matches()) {
 					String className = clazz.substring(pkgFromImportLine.length() + 1, clazz.indexOf(".class"));
+					clazz = clazz.replaceAll("/", "\\.");
+					clazz = clazz.replaceAll(".class", "");
 					classesMap.put(className, clazz);
 				}
 			}

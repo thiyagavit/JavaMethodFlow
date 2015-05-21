@@ -62,6 +62,57 @@ public class ClassStructContainer2 {
 		return instance;
 	}
 	
+	public void getAnchestors(ClassOrInterfaceStruct2 child, List<String> anchestors) {
+		
+		//Parse all the interfaces implemented by the class.
+		if(!child.getInterfacesImplemented().isEmpty()) {
+			Collection<String> interfaces = child.getInterfacesImplemented().values();
+			
+			//An interface can extend one or more interfaces. so recursively parse interfaces to construct complete tree. 
+			for(String interfaceStr : interfaces) {
+				
+				if(anchestors.contains(interfaceStr)) {
+					continue;
+				}
+				anchestors.add(interfaceStr);
+				ClassOrInterfaceStruct2 interface_struct = this.getClassOrInterface(interfaceStr);
+				
+				if(interface_struct != null) {
+					getAnchestors(interface_struct, anchestors);
+				}
+			}
+		}
+		
+		if(!child.getSuperClasses().isEmpty()) {
+			Collection<String> superClasses = child.getSuperClasses().values();
+
+			for(String parent : superClasses) {				
+				if(anchestors.contains(parent)) {
+					continue;
+				}
+				anchestors.add(parent);
+				ClassOrInterfaceStruct2 parent_struct = this.getClassOrInterface(parent);
+				
+				if(parent_struct != null) {
+					//parse the super class to get the interfaces and other super classes.
+					getAnchestors(parent_struct, anchestors);	
+				}				
+			}
+		}
+		
+	}
+	
+	public boolean isAnchestor(String childToCheck, String parentToCheckAgainst) {
+		ClassOrInterfaceStruct2 child = this.getClassOrInterface(childToCheck);
+		
+		if(child != null) {
+			List<String> anchestors = new LinkedList<String>();
+			getAnchestors(child, anchestors);
+			return anchestors.contains(parentToCheckAgainst);
+		}
+		return false;
+	}
+	
 	public ClassOrInterfaceStruct2 getClassOrInterfaceContainingMethod(String methodName) {
 		MethodStruct2 m_struct = MethodUtils.resolveMethodQualifiedName(methodName);
 		return classes.get(m_struct.getPkg() + "." + m_struct.getClazz());
@@ -140,7 +191,9 @@ public class ClassStructContainer2 {
 					//If argType is null it may be the arg type cannot be determined using method call Expr.
 					if(argType == null) {
 						continue;
-					} else if(!varType.equals(argType)) {
+						
+						//If argument passed matches method signature variable class or if argument passed is a child of method sig variable then fine else return false. 
+					} else if(! (varType.equals(argType) || this.isAnchestor(argType, varType))) {
 						return false;
 					}
 				}

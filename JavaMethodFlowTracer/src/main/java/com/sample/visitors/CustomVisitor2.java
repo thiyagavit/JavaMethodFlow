@@ -24,6 +24,7 @@ import japa.parser.ast.expr.VariableDeclarationExpr;
 import japa.parser.ast.visitor.VoidVisitorAdapter;
 
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -33,6 +34,7 @@ import com.sample.base.MethodStruct2;
 import com.sample.base.VariableStruct2;
 import com.sample.containers.ClassStructContainer2;
 import com.sample.utils.LangUtils;
+import com.sample.utils.MethodUtils;
 
 /**
  * TODO Small and simple description of the type
@@ -323,59 +325,81 @@ public class CustomVisitor2 extends VoidVisitorAdapter {
 
 	}
 	
+	private List<String> parseMethodCallArgs(MethodCallExpr mcall_expr, ClassOrInterfaceStruct2 parent, MethodStruct2 m_struct) {
+		List<Expression> args = mcall_expr.getArgs();
+		List<String> argsType = new LinkedList<String>();
+		
+		if(args != null && !args.isEmpty()) {
+			for(Expression arg : args) {
+				argsType.add(getQNameForExpr(arg, parent, m_struct, false));
+			}
+		}
+		return argsType;
+	}
+	
 	public String getQNameForExpr(Expression expression, ClassOrInterfaceStruct2 parent, MethodStruct2 m_struct, boolean resolveInterface) {
 		String qtype = exprTypeMap.get(expression.getClass());
 		
-		if(expression instanceof MethodCallExpr) {
-			//TODO:
-			
-		} else if(expression instanceof CastExpr) {
-			CastExpr cast_expr = (CastExpr)expression;
-			qtype = methodSigVisitor.evaluateType(cast_expr.getType(), parent).toString();			
-		} else if(expression instanceof ConditionalExpr) {
-			ConditionalExpr cond_expr = (ConditionalExpr) expression;
-			return getQNameForExpr(cond_expr.getThenExpr(), parent, m_struct, resolveInterface);
-		} else if(expression instanceof FieldAccessExpr) {
-			FieldAccessExpr f_expr = (FieldAccessExpr) expression;
-			Expression f_scope_expr = f_expr.getScope();
-			String fieldName = f_expr.getField();
-			
-			if(f_scope_expr != null) {
-				String f_scope_name = getQNameForExpr(f_scope_expr, parent, m_struct, resolveInterface);
-				ClassOrInterfaceStruct2 scopeType = ClassStructContainer2.getInstance().getClassOrInterface(f_scope_name);
+		if(qtype == null) {
+			if(expression instanceof MethodCallExpr) {
+				//TODO:
+				MethodCallExpr mcall_expr = (MethodCallExpr) expression;
+				String mcallQnameWithoutArgs = getQNameForMethodCallExpr(mcall_expr, parent, m_struct, false);
 				
-				if(scopeType == null) {
-					//Class Container does not hold the class. It could be a in java itself or in one of libraries.
-					qtype = f_scope_name + "." + fieldName;
-				} else {
+				List<String> argsType = parseMethodCallArgs(mcall_expr, parent, m_struct);
+				MethodStruct2 m_struct_child = ClassStructContainer2.getInstance().getMatchingMethod(mcallQnameWithoutArgs, argsType, null, null);
+				
+				if(m_struct_child != null) {
+					qtype = m_struct_child.getReturnType();
+				}				
+			} else if(expression instanceof CastExpr) {
+				CastExpr cast_expr = (CastExpr)expression;
+				qtype = methodSigVisitor.evaluateType(cast_expr.getType(), parent).toString();			
+			} else if(expression instanceof ConditionalExpr) {
+				ConditionalExpr cond_expr = (ConditionalExpr) expression;
+				return getQNameForExpr(cond_expr.getThenExpr(), parent, m_struct, resolveInterface);
+			} else if(expression instanceof FieldAccessExpr) {
+				FieldAccessExpr f_expr = (FieldAccessExpr) expression;
+				Expression f_scope_expr = f_expr.getScope();
+				String fieldName = f_expr.getField();
+				
+				if(f_scope_expr != null) {
+					String f_scope_name = getQNameForExpr(f_scope_expr, parent, m_struct, resolveInterface);
+					ClassOrInterfaceStruct2 scopeType = ClassStructContainer2.getInstance().getClassOrInterface(f_scope_name);
 					
-					//search for the field in the class scopeType.
-					qtype = getQNameForExpr(f_expr.getFieldExpr(), scopeType, m_struct, resolveInterface);
-				}
-			}
-			
-		} else if(expression instanceof NameExpr) {
-			NameExpr n_expr = (NameExpr) expression;
-			VariableStruct2 varStruct =  searchForVariable(n_expr.getName(), parent, m_struct, m_struct.getVars(), true);
-			
-			if(varStruct != null) {
-				
-				if(resolveInterface && varStruct.getValueTypeQualified() != null) {
-					qtype = varStruct.getValueTypeQualified();
-				} else {
-					qtype = varStruct.getQualifiedNameWithoutVarName();	
+					if(scopeType == null) {
+						//Class Container does not hold the class. It could be a in java itself or in one of libraries.
+						qtype = f_scope_name + "." + fieldName;
+					} else {
+						
+						//search for the field in the class scopeType.
+						qtype = getQNameForExpr(f_expr.getFieldExpr(), scopeType, m_struct, resolveInterface);
+					}
 				}
 				
+			} else if(expression instanceof NameExpr) {
+				NameExpr n_expr = (NameExpr) expression;
+				VariableStruct2 varStruct =  searchForVariable(n_expr.getName(), parent, m_struct, m_struct.getVars(), true);
+				
+				if(varStruct != null) {
+					
+					if(resolveInterface && varStruct.getValueTypeQualified() != null) {
+						qtype = varStruct.getValueTypeQualified();
+					} else {
+						qtype = varStruct.getQualifiedNameWithoutVarName();	
+					}
+					
+				}			
 			}			
 		}
+
 		//TODO: handle other type of expressions.
 		//TODO: handle arrays.
 		return qtype;
 	}
 	
-	public MethodCallStruct2 evaluateMethodCallExpr(MethodCallExpr mexpr, ClassOrInterfaceStruct2 parent, 
-			MethodStruct2 m_struct, Map<String, VariableStruct2> methodVariables) {
-		MethodCallStruct2 callStruct = new MethodCallStruct2();
+	protected String getQNameForMethodCallExpr(MethodCallExpr mexpr, ClassOrInterfaceStruct2 parent, 
+			MethodStruct2 m_struct, boolean appendArgs) {
 		String calledMethodQname = "";
 		String calledMethodName = mexpr.getName();
 		
@@ -393,18 +417,27 @@ public class CustomVisitor2 extends VoidVisitorAdapter {
 			System.out.println(scope_Expr);
 			calledMethodQname = getQNameForExpr(scope_Expr, parent, m_struct, true) + "." + calledMethodName;
 		}
+		
+		if(appendArgs) {
+			String argsCSString = MethodUtils.qnameCollToCSSepString(parseMethodCallArgs(mexpr, parent, m_struct));
+			
+			if(argsCSString != null) {
+				calledMethodQname = calledMethodQname + "<" + argsCSString + ">";
+			}
+		}
+		
+		return calledMethodQname;
+	}
+	
+	public MethodCallStruct2 evaluateMethodCallExpr(MethodCallExpr mexpr, ClassOrInterfaceStruct2 parent, 
+			MethodStruct2 m_struct, Map<String, VariableStruct2> methodVariables) {
+		MethodCallStruct2 callStruct = new MethodCallStruct2();
+		String calledMethodQname = getQNameForMethodCallExpr(mexpr, parent, m_struct, false);
 		callStruct.setCalledMethod(calledMethodQname);
 
 		//TODO: evaluate method args and add to MethodCallStruct.
-		List<Expression> args = mexpr.getArgs();
+		callStruct.setCallArgs(parseMethodCallArgs(mexpr, parent, m_struct));
 		
-		if(args != null && !args.isEmpty()) {
-			for(Expression arg : args) {
-				System.out.println(arg);
-				callStruct.getCallArgs().add(getQNameForExpr(arg, parent, m_struct, false));
-			}
-		}	
-
 		if(!m_struct.getCalledMethods().contains(callStruct)) {
 			m_struct.getCalledMethods().add(callStruct);	
 		}		

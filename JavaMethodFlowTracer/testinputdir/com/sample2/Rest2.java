@@ -6,6 +6,7 @@ package com.sample2;
 
 import com.test.ITestInterface;
 import com.test.impl.TestInterFaceImpl;
+import com.test.factory.*;
 
 /**
  * TODO Small and simple description of the type
@@ -32,6 +33,15 @@ public class Rest2 {
 		if(testInterface == null) {
 			testInterface = new TestInterFaceImpl();	
 		}		
-		testInterface.addTwoNumber(2, 3);
+		TestInterFaceFactory.getITestInterface("type1").addTwoNumber(getFirstNum(), getSecondNum());
+		//testInterface.addTwoNumber(getFirstNum(), getSecondNum());
+	}
+	
+	public int getFirstNum() {
+		return 2;
+	}
+	
+	public int getSecondNum() {
+		return 3;
 	}
 }
