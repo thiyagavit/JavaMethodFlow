@@ -5,6 +5,7 @@
 package com.sample.visitors;
 
 import japa.parser.ast.body.MethodDeclaration;
+import japa.parser.ast.expr.ArrayAccessExpr;
 import japa.parser.ast.expr.AssignExpr;
 import japa.parser.ast.expr.BooleanLiteralExpr;
 import japa.parser.ast.expr.CastExpr;
@@ -33,7 +34,6 @@ import com.sample.base.MethodCallStruct2;
 import com.sample.base.MethodStruct2;
 import com.sample.base.VariableStruct2;
 import com.sample.containers.ClassStructContainer2;
-import com.sample.utils.LangUtils;
 import com.sample.utils.MethodUtils;
 
 /**
@@ -70,18 +70,24 @@ public class CustomVisitor2 extends VoidVisitorAdapter {
 		}
 	}
 	
-	
 	public void evaluateAssignExpr(AssignExpr a_expr, ClassOrInterfaceStruct2 parent, 
 			MethodStruct2 m_struct) {
 		if(a_expr.getValue() instanceof ObjectCreationExpr) {
 			
+			String methodVarName = null;
+			
 			if(a_expr.getTarget() instanceof NameExpr) {
-				String methodVarName = ((NameExpr)a_expr.getTarget()).getName();
-				
-				//Search at method 
-				
+				methodVarName = ((NameExpr)a_expr.getTarget()).getName();
+			} else if(a_expr.getTarget() instanceof ArrayAccessExpr) {
+				ArrayAccessExpr arr_acc_expr = (ArrayAccessExpr) a_expr.getTarget();
+				methodVarName = ((NameExpr)arr_acc_expr.getName()).getName();
+			}
+			
+			if(methodVarName != null) {
+
+				//Search at method
 				//Check for variable at class level. TODO method level and method call args check.
-				VariableStruct2 varStruct =  searchForVariable(methodVarName, parent, m_struct, m_struct.getVars(), false);
+				VariableStruct2 varStruct =  this.methodSigVisitor.searchForVariable(methodVarName, parent, m_struct, m_struct.getVars(), false);
 				
 				if(varStruct != null) {
 					ObjectCreationExpr obj_expr = (ObjectCreationExpr) a_expr.getValue();
@@ -124,117 +130,6 @@ public class CustomVisitor2 extends VoidVisitorAdapter {
 	
 	}
 
-/*	public void evaluateMethodBody(BlockStmt body, ClassOrInterfaceStruct parent, 
-			MethodStruct m_struct) {
-
-		//Variables declared within method body.
-		Map<QName, VariableStruct> methodVariables = new HashMap<QName, VariableStruct>();
-
-		//parse method  body if present.
-		//Interfaces do not have body. so ignore.
-		if(body != null) {
-
-			List<Statement> stmts = body.getStmts();
-
-			for ( Statement stmt : stmts ) {
-
-				if ( stmt instanceof ExpressionStmt ) {
-					ExpressionStmt exprStmt = (ExpressionStmt)stmt;
-					Expression exp = exprStmt.getExpression();
-
-					if ( exp instanceof MethodCallExpr ) {
-						MethodCallExpr mexpr = (MethodCallExpr)exp;
-						MethodCallStruct m_callStruct = evaluateMethodCallExpr(mexpr, parent, m_struct, methodVariables);
-						m_struct.getCalledMethods().add(m_callStruct);
-					} else if(exp instanceof VariableDeclarationExpr) {
-						VariableDeclarationExpr varExpr = (VariableDeclarationExpr) exp;
-						VariableStruct var  = evaluateVariableDeclExpr(varExpr, parent, m_struct);
-						methodVariables.put(var.getQname(), var);
-					} else if(exp instanceof AssignExpr) {
-						evaluateAssignExpr((AssignExpr) exp, parent, m_struct, methodVariables);
-					}
-				}
-			}			
-		}		
-	}
-
-	public void evaluateAssignExpr(AssignExpr a_expr, ClassOrInterfaceStruct parent, 
-			MethodStruct m_struct, Map<QName, VariableStruct> methodVariables) {
-		if(a_expr.getValue() instanceof ObjectCreationExpr) {
-			
-			if(a_expr.getTarget() instanceof NameExpr) {
-				String methodVarName = ((NameExpr)a_expr.getTarget()).getName();
-				
-				//Search at method 
-				
-				//Check for variable at class level. TODO method level and method call args check.
-				VariableStruct varStruct =  searchForVariable(methodVarName, parent, m_struct, methodVariables);
-				
-				if(varStruct != null) {
-					ObjectCreationExpr obj_expr = (ObjectCreationExpr) a_expr.getValue();
-					varStruct.setValueType(processObjecInitExpr(obj_expr, parent));	
-				}				
-			}
-		}		
-	}
-	*/
-	
-	protected VariableStruct2 searchForVariable(String methodVarName, ClassOrInterfaceStruct2 parent, 
-			MethodStruct2 m_struct, Map<String, VariableStruct2> methodVariables, boolean appendLangPkg) {
-		
-		//search in method call args.
-		VariableStruct2 varStruct = m_struct.getCallArgs().get(methodVarName);
-		
-
-		if(varStruct == null) {
-			//Search in variables declared in method
-			varStruct =  m_struct.getVars().get(methodVarName);
-		}
-		
-		if(varStruct == null) {
-			
-			//Search in instance variables.
-			varStruct =  parent.getVariables().get(methodVarName);
-		}
-		
-		if(varStruct == null) {
-			//TODO: handle nested calls. 
-			//variables in not a method call var/ method var/instace var. so check if static var. static var has scope.
-			varStruct = new VariableStruct2();
-			String clazz = methodVarName;
-			varStruct.setType(clazz);
-			varStruct.setStaticVar(true);
-			String fieldTypeQualified = parent.getImports().get(clazz);
-
-			if(fieldTypeQualified == null) {
-
-				try {						
-					if(clazz.contains(".")) {
-						//handle nested access. e.g : System.out.println() where out is nested within System;
-						clazz = clazz.substring(0, clazz.indexOf("."));
-					}
-					if(LangUtils.isClassFromLangPackage(clazz)) {
-						fieldTypeQualified = appendLangPkg ? "java.lang." + clazz : null;
-					} else {
-						fieldTypeQualified = parent.getPkg() + "." + clazz;
-					}
-				}
-				catch ( Exception e ) {
-					e.printStackTrace();
-				}
-
-			}
-
-			//Qualification not necessary for java.lang package.
-			if(fieldTypeQualified != null) {
-				varStruct.setTypePkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
-			}				
-
-		}		
-		return varStruct;
-	}
-
-	
 	public VariableStruct2 evaluateVariableDeclExpr(VariableDeclarationExpr varExpr, ClassOrInterfaceStruct2 parent, 
 			MethodStruct2 m_struct) {
 		VariableStruct2 var  = methodSigVisitor.evaluateType(varExpr.getType(), parent);
@@ -377,9 +272,12 @@ public class CustomVisitor2 extends VoidVisitorAdapter {
 					}
 				}
 				
+			} else if(expression instanceof ArrayAccessExpr) {
+				ArrayAccessExpr arr_acc_expr = (ArrayAccessExpr) expression;
+				return getQNameForExpr(arr_acc_expr.getName(), parent, m_struct, resolveInterface);
 			} else if(expression instanceof NameExpr) {
 				NameExpr n_expr = (NameExpr) expression;
-				VariableStruct2 varStruct =  searchForVariable(n_expr.getName(), parent, m_struct, m_struct.getVars(), true);
+				VariableStruct2 varStruct =  this.methodSigVisitor.searchForVariable(n_expr.getName(), parent, m_struct, m_struct.getVars(), true);
 				
 				if(varStruct != null) {
 					
@@ -390,7 +288,9 @@ public class CustomVisitor2 extends VoidVisitorAdapter {
 					}
 					
 				}			
-			}			
+			} else if(expression instanceof ObjectCreationExpr) {
+				qtype = methodSigVisitor.processObjecInitExpr((ObjectCreationExpr)expression, parent);
+			}
 		}
 
 		//TODO: handle other type of expressions.

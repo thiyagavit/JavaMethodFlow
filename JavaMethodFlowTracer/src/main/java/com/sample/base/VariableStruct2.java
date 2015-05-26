@@ -39,7 +39,29 @@ public class VariableStruct2 {
 	//Should not be null if this is delcared in side method. 
 	MethodStruct2 parentMethod;
 	
+	boolean arrayVar;
 	
+	
+	/**
+	 * Gets the arrayVar
+	 *
+	 * @return the arrayVar
+	 */
+	public boolean isArrayVar()
+	{
+		return arrayVar;
+	}
+
+	/**
+	 * Sets the arrayVar value
+	 *
+	 * @param arrayVar the arrayVar to set
+	 */
+	public void setArrayVar(boolean arrayVar)
+	{
+		this.arrayVar = arrayVar;
+	}
+
 	/**
 	 * Gets the parent
 	 *
@@ -215,7 +237,9 @@ public class VariableStruct2 {
 		if(this.type != null) {
 			buff.append(this.type);	
 		}
-		
+		if(this.arrayVar) {
+			buff.append("[]");
+		}		
 		return buff.toString();
 	}
 	

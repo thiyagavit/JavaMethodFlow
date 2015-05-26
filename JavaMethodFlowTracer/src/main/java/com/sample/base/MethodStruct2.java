@@ -289,12 +289,7 @@ public class MethodStruct2 {
 			int i = 1;
 			buff.append("<");
 			for(VariableStruct2 var : this.callArgs.values()) {
-				if(var.getTypePkg() != null) {
-					buff.append(var.getTypePkg()).append(".");
-				}
-				if(var.getType() != null) {
-					buff.append(var.getType());	
-				}
+				buff.append(var.getQualifiedNameWithoutVarName());
 				
 				if(i < this.callArgs.size()) {
 					buff.append(",");

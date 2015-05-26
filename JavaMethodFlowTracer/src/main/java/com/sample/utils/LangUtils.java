@@ -4,8 +4,6 @@
  */
 package com.sample.utils;
 
-import japa.parser.ParseException;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -17,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -86,9 +86,9 @@ public class LangUtils {
 			"testinputdir"
 		}; 
 		System.out.println(getClassesFromProjectSrcDirs(SRC_DIRS));
-		getlibJarClasses();
+		//getlibJarClasses();
 		getLangPkgClasses();
-		resolveAsterickImport("japa.parser.*");
+		//resolveAsterickImport("japa.parser.*");
 	}
 
 	public static Set<String> getlibJarClasses() {
@@ -126,24 +126,27 @@ public class LangUtils {
 	public static Set<String> getClassesOfOptPkgFromJarFile(String zipPath, String pkg) {
 		Set<String> classes = new HashSet<String>();
 
-		ZipFile z = null;
+		JarFile z = null;
 		try {
-			z = new ZipFile(new File(new URI(zipPath)));
-			Enumeration<? extends ZipEntry> e =z.entries();
+			z = new JarFile(new File(new URI(zipPath)));
+			Enumeration<?> e = z.entries();
 			String pkgFilterregEx = null;
 			
 			if(pkg != null) {
 				pkgFilterregEx = pkg +"/\\w+\\.class";
 			}
 			while(e.hasMoreElements()) {
-				String n = e.nextElement().getName();
+				JarEntry entry = (JarEntry)e.nextElement();
+				String n = entry.getName();
 				
-				if(pkgFilterregEx != null) {
-					if(n.matches(pkgFilterregEx)) {
+				if(pkgFilterregEx != null) {					
+					if(n.matches(pkgFilterregEx)) {						
 						classes.add(n);	
-					}				
-				} else {
-					classes.add(n);	
+						ClassFileReader.parseClassFile(z, entry, false);
+					} else if(n.endsWith(".class")) {
+						//These classes are not part of java.lang package but still must be processed.
+						ClassFileReader.parseClassFile(z, entry, false);
+					}
 				}
 			}
 			z.close();
@@ -233,4 +236,7 @@ public class LangUtils {
 		return PRIMITIVE_TYPES.contains(type);
 	}
 	
+	public static boolean isArray(String type) {
+		return type.contains("[]");
+	}
 }

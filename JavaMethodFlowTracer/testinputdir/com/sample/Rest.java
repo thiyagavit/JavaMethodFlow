@@ -19,15 +19,14 @@ import com.sample2.Rest2;
  */
 public class Rest {
 
-	public void printBye() {
+	public void printBye(int[] test) {
 		System.out.println("Bi");		
-		printDone();
+		printDone(test[0]);
 		Rest2 rest2 = new Rest2();
 		rest2.printBye2();
-		
-	}		
+	}
 	
-	public void printDone() {
-		System.out.println("Done");
+	public void printDone(int test) {
+		System.out.println("Done " + test);
 	}	
 }

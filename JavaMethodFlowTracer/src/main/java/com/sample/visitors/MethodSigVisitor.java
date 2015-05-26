@@ -4,17 +4,6 @@
  */
 package com.sample.visitors;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import com.sample.base.ClassOrInterfaceStruct2;
-import com.sample.base.ClassType;
-import com.sample.base.MethodStruct2;
-import com.sample.base.VariableStruct2;
-import com.sample.containers.ClassStructContainer2;
-import com.sample.utils.LangUtils;
-
 import japa.parser.ast.CompilationUnit;
 import japa.parser.ast.ImportDeclaration;
 import japa.parser.ast.Node;
@@ -26,9 +15,21 @@ import japa.parser.ast.expr.Expression;
 import japa.parser.ast.expr.ObjectCreationExpr;
 import japa.parser.ast.type.ClassOrInterfaceType;
 import japa.parser.ast.type.PrimitiveType;
+import japa.parser.ast.type.ReferenceType;
 import japa.parser.ast.type.Type;
 import japa.parser.ast.type.VoidType;
 import japa.parser.ast.visitor.VoidVisitorAdapter;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.sample.base.ClassOrInterfaceStruct2;
+import com.sample.base.ClassType;
+import com.sample.base.MethodStruct2;
+import com.sample.base.VariableStruct2;
+import com.sample.containers.ClassStructContainer2;
+import com.sample.utils.LangUtils;
 
 /**
  * TODO Small and simple description of the type
@@ -67,6 +68,60 @@ public class MethodSigVisitor extends VoidVisitorAdapter {
 		return parent;
 	}	
 
+	public VariableStruct2 searchForVariable(String methodVarName, ClassOrInterfaceStruct2 parent, 
+			MethodStruct2 m_struct, Map<String, VariableStruct2> methodVariables, boolean appendLangPkg) {
+		
+		//search in method call args.
+		VariableStruct2 varStruct = m_struct.getCallArgs().get(methodVarName);
+		
+
+		if(varStruct == null) {
+			//Search in variables declared in method
+			varStruct =  m_struct.getVars().get(methodVarName);
+		}
+		
+		if(varStruct == null) {
+			
+			//Search in instance variables.
+			varStruct =  parent.getVariables().get(methodVarName);
+		}
+		
+		if(varStruct == null) {
+			//TODO: handle nested calls. 
+			//variables in not a method call var/ method var/instace var. so check if static var. static var has scope.
+			varStruct = new VariableStruct2();
+			String clazz = methodVarName;
+			varStruct.setType(clazz);
+			varStruct.setStaticVar(true);
+			String fieldTypeQualified = parent.getImports().get(clazz);
+
+			if(fieldTypeQualified == null) {
+
+				try {						
+					if(clazz.contains(".")) {
+						//handle nested access. e.g : System.out.println() where out is nested within System;
+						clazz = clazz.substring(0, clazz.indexOf("."));
+					}
+					if(LangUtils.isClassFromLangPackage(clazz)) {
+						fieldTypeQualified = appendLangPkg ? "java.lang." + clazz : null;
+					} else {
+						fieldTypeQualified = parent.getPkg() + "." + clazz;
+					}
+				}
+				catch ( Exception e ) {
+					e.printStackTrace();
+				}
+
+			}
+
+			//Qualification not necessary for java.lang package.
+			if(fieldTypeQualified != null) {
+				varStruct.setTypePkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
+			}				
+
+		}		
+		return varStruct;
+	}
 	
 	public MethodStruct2 getMethodStruct(MethodDeclaration n, ClassOrInterfaceStruct2 parent) {		
 		String m_name = n.getName();
@@ -78,12 +133,8 @@ public class MethodSigVisitor extends VoidVisitorAdapter {
 			buff.append("<");
 			int i = 1;
 			for(VariableStruct2 var : paramMap.values()) {
-				if(var.getTypePkg() != null) {
-					buff.append(var.getTypePkg()).append(".");
-				}
-				if(var.getType() != null) {
-					buff.append(var.getType());	
-				}				
+				buff.append(var.getQualifiedNameWithoutVarName());
+				
 				if(i < paramMap.size()) {
 					buff.append(",");
 				}		
@@ -162,64 +213,26 @@ public class MethodSigVisitor extends VoidVisitorAdapter {
 	@Override
 	public void visit(FieldDeclaration n, Object arg) {
 		ClassOrInterfaceStruct2 parent = getClassOrInterfaceStruct(n);
-		String fieldType = n.getType().toString();
-		String fieldTypeQualified = parent.getImports().get(fieldType);
-		VariableStruct2 var = new VariableStruct2();
-
-		if(fieldTypeQualified == null) {
-
-			try {
-				//Check if field type is primitive like int,boolaen etc.. if so ignore qualification.
-				if(!LangUtils.isPrimitiveType(fieldType)) {
-					//Check if the class belong to java.lang package
-					if(LangUtils.isClassFromLangPackage(fieldType)) {
-						fieldTypeQualified = "java.lang." + fieldType;
-					}  else {
-						//Default package.
-						//TODO: handle inline package decl
-						fieldTypeQualified = parent.getPkg() + "." + fieldType;
-					}
-				}
-			}
-			catch ( Exception e ) {
-				e.printStackTrace();
-			}
-
-		}
-
-		if(fieldTypeQualified != null) {
-			var.setTypePkg(fieldTypeQualified.substring(0, fieldTypeQualified.lastIndexOf(".")));	
-		}		
-		var.setType(fieldType);		
+		VariableStruct2 var = evaluateType(n.getType(), parent);
 		var.setName(n.getVariables().get(0).getId().toString());
 		var.setParent(parent);
 		Expression expr =  n.getVariables().get(0).getInit();
 		
-		//if variable is initilised with new keywork then get the actual type as well.
+		//if variable is initilized with new keyword then get the actual type as well.
 		if(expr != null) {
 			
 			if(expr instanceof ObjectCreationExpr) {
 				ObjectCreationExpr obj_expr = (ObjectCreationExpr) expr;
 				var.setValueTypeQualified(processObjecInitExpr(obj_expr, parent));
 			}
-		}
-		
+		}		
 		parent.getVariables().put(var.getName(), var);
 		super.visit(n, arg);
 	}
 
 	public String processObjecInitExpr(ObjectCreationExpr obj_expr, ClassOrInterfaceStruct2 parent) {
-		String classStr =  obj_expr.getType().getName();
-		String classQualified = parent.getImports().get(classStr);
-		String pkg = null;
-		
-		if(classQualified == null) {
-			//Default package handle.
-			pkg = parent.getPkg();
-		} else {
-			pkg = classQualified.substring(0, classQualified.lastIndexOf("."));
-		}
-		return pkg + "." + classStr;
+		VariableStruct2 temp = evaluateType(obj_expr.getType(), parent);
+		return temp.getQualifiedNameWithoutVarName();
 	}
 
 	@Override
@@ -271,10 +284,15 @@ public class MethodSigVisitor extends VoidVisitorAdapter {
 			try {
 				if(type instanceof VoidType) {
 					return null;
-				}
-				
-				//Check if field type is primitive like int,boolaen etc.. if so ignore qualification.
-				if(!(type instanceof PrimitiveType)) {
+				} else if (type instanceof ReferenceType && ((ReferenceType)type).getArrayCount() > 0) {
+					ReferenceType refType = (ReferenceType) type;
+					var.setArrayVar(true);
+					VariableStruct2 arrayVarElem  = evaluateType(refType.getType(), parent);
+					var.setType(arrayVarElem.getType());
+					var.setTypePkg(arrayVarElem.getTypePkg());
+					return var;
+				} else if(!(type instanceof PrimitiveType)) {
+					//Check if field type is primitive like int,boolaen etc.. if so ignore qualification.
 					
 					//Check if the class belong to java.lang package
 					if(LangUtils.isClassFromLangPackage(fieldType)) {

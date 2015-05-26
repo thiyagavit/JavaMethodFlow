@@ -69,9 +69,9 @@ public class SourceParser2 {
 		
 		parser.processSrcDir(files, true);
 		parser.processSrcDir(files, false);
-		System.out.println("************************************");
-		System.out.println(ClassStructContainer2.getInstance().toString());
-		System.out.println("************************************");
+		//System.out.println("************************************");
+		//System.out.println(ClassStructContainer2.getInstance().toString());
+		//System.out.println("************************************");
 		String methodName = "com.sample.Test.printHello";
 		parser.printMethodCallTreeForMethod(methodName);
 	}

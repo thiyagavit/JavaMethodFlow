@@ -20,7 +20,7 @@ import com.test.factory.*;
  */
 public class Rest2 {
 
-	public ITestInterface testInterface;
+	public ITestInterface[] testInterfaces = new ITestInterface[1];
 	
 	public void printBye2() {
 		System.out.println("Bi");
@@ -30,11 +30,11 @@ public class Rest2 {
 	public void calcSum() {
 		System.out.println("Done");
 		
-		if(testInterface == null) {
-			testInterface = new TestInterFaceImpl();	
+		if(testInterfaces != null) {
+			testInterfaces[0] = new TestInterFaceImpl();	
 		}		
-		TestInterFaceFactory.getITestInterface("type1").addTwoNumber(getFirstNum(), getSecondNum());
-		//testInterface.addTwoNumber(getFirstNum(), getSecondNum());
+		//TestInterFaceFactory.getITestInterface("type1").addTwoNumber(getFirstNum(), getSecondNum());
+		testInterfaces[0].addTwoNumber(getFirstNum(), getSecondNum());
 	}
 	
 	public int getFirstNum() {
